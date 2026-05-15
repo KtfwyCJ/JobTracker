@@ -51,6 +51,16 @@ export default function Navbar({ onAddJob }: { onAddJob: () => void }) {
           >
             Waiting List
           </Link>
+          <Link
+            href="/analyze"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              pathname === '/analyze'
+                ? 'bg-zinc-100 text-zinc-900'
+                : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            Analyze
+          </Link>
         </nav>
       </div>
       <button

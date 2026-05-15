@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# personal CV (do not commit)
+CV.md
+
+# visual companion session files
+.superpowers/
+
 # vercel
 .vercel
 
