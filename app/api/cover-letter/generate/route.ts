@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -14,20 +16,33 @@ export async function POST(request: Request) {
       return Response.json({ error: 'JD, match, and gaps results are required' }, { status: 400 })
     }
 
+    let template: string
+    try {
+      template = readFileSync(join(process.cwd(), 'CoverLetterTemplate.md'), 'utf-8')
+    } catch {
+      return Response.json(
+        { error: 'CoverLetterTemplate.md not found in project root. Please add your cover letter template.' },
+        { status: 500 }
+      )
+    }
+
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{
         role: 'user',
-        content: `Write a professional, personalized cover letter for this job application. Return ONLY the cover letter text — no subject line, no JSON, no markdown.
+        content: `You have a cover letter template written by the candidate. Adapt it for the specific job below. Return ONLY the cover letter text — no subject line, no JSON, no markdown.
 
-Requirements:
-- 300-400 words
-- Open with a specific hook referencing the role and company by name
-- Highlight the top 2-3 matching strengths with concrete examples (infer from the match analysis)
-- If there are hard gaps, briefly acknowledge them positively (e.g., "I'm actively expanding my experience in X")
+TEMPLATE:
+${template}
+
+Instructions:
+- Replace "XXXX" with the actual job title and mention the company by name in the opening
+- Tailor the body to highlight the top 2-3 matching strengths with concrete examples drawn from the match analysis
+- If there are hard gaps, briefly acknowledge them positively (e.g. "I am actively expanding my experience in X")
+- Keep the candidate's personal voice, tone, and letter structure from the template
 - Close with genuine enthusiasm and a clear call to action
-- Professional but warm tone — avoid generic corporate phrases like "I am writing to express my interest"
+- Target 300–400 words
 
 JOB: ${jd.title ?? 'the role'} at ${jd.company ?? 'the company'} (${jd.level ?? ''})
 
