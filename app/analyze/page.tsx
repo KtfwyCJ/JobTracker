@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import DashboardShell from '../_components/DashboardShell'
+import AddJobModal from '../_components/AddJobModal'
 
 type StepStatus = 'idle' | 'running' | 'done' | 'error'
 
@@ -18,6 +21,8 @@ interface StructureResult { title?: string; company?: string; level?: string; lo
 interface MatchResult { strengths?: string[]; gaps?: string[]; summary?: string }
 interface GapsResult { hardGaps?: string[]; softGaps?: string[]; score?: number; verdict?: string }
 interface CoverLetterResult { coverLetter: string }
+interface Suggestion { gap: string; bullet: string }
+interface SuggestionsResult { suggestions: Suggestion[] }
 
 const INITIAL_STEPS: Step[] = [
   { id: 'extract', label: 'JD Extractor', status: 'idle', preview: '', error: '' },
@@ -85,7 +90,14 @@ export default function AnalyzePage() {
   const [gapsResult, setGapsResult] = useState<GapsResult | null>(null)
   const [coverLetter, setCoverLetter] = useState('')
   const [copied, setCopied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [retryFromIndex, setRetryFromIndex] = useState<number | null>(null)
+  const [showAppliedModal, setShowAppliedModal] = useState(false)
+  const [suggestionsResult, setSuggestionsResult] = useState<Suggestion[] | null>(null)
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [suggestionsError, setSuggestionsError] = useState('')
+  const [suggestionsCopied, setSuggestionsCopied] = useState(false)
+  const printRef = useRef<HTMLDivElement>(null)
 
   // Stored intermediate results for retry
   const [extractRes, setExtractRes] = useState<ExtractResult | null>(null)
@@ -135,6 +147,10 @@ export default function AnalyzePage() {
       setExtractRes(null)
       setStructureRes(null)
       setMatchRes(null)
+    }
+    if (startFrom <= 3) {
+      setSuggestionsResult(null)
+      setSuggestionsError('')
     }
 
     let extract = startFrom === 0 ? null : extractRes
@@ -195,10 +211,110 @@ export default function AnalyzePage() {
     setRunning(false)
   }
 
+  function handleClear() {
+    setUrl('')
+    setSteps(INITIAL_STEPS)
+    setGapsResult(null)
+    setCoverLetter('')
+    setRetryFromIndex(null)
+    setExtractRes(null)
+    setStructureRes(null)
+    setMatchRes(null)
+    setSuggestionsResult(null)
+    setSuggestionsError('')
+  }
+
+  function buildAnalysisText(): string {
+    const lines: string[] = []
+    if (gapsResult?.score !== undefined) {
+      lines.push(`Match: ${gapsResult.score}/10 — ${gapsResult.verdict ?? ''}`)
+    }
+    if (matchRes?.strengths?.length) {
+      lines.push('')
+      lines.push('Strengths:')
+      matchRes.strengths.forEach((s) => lines.push(`• ${s}`))
+    }
+    if (gapsResult?.hardGaps?.length) {
+      lines.push('')
+      lines.push('Hard Gaps:')
+      gapsResult.hardGaps.forEach((g) => lines.push(`• ${g}`))
+    }
+    if (gapsResult?.softGaps?.length) {
+      lines.push('')
+      lines.push('Soft Gaps:')
+      gapsResult.softGaps.forEach((g) => lines.push(`• ${g}`))
+    }
+    return lines.join('\n')
+  }
+
   function handleCopy() {
     navigator.clipboard.writeText(coverLetter)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleGetSuggestions() {
+    if (!structureRes || !gapsResult || suggestionsLoading) return
+    setSuggestionsLoading(true)
+    setSuggestionsError('')
+    setSuggestionsResult(null)
+    try {
+      const res = await fetch('/api/cv/suggestions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jd: structureRes, gaps: gapsResult }),
+      })
+      const data: SuggestionsResult & { error?: string } = await res.json()
+      if (!res.ok || data.error) {
+        setSuggestionsError(data.error ?? 'Request failed')
+      } else {
+        setSuggestionsResult(data.suggestions)
+      }
+    } catch (e) {
+      setSuggestionsError(e instanceof Error ? e.message : 'Network error')
+    } finally {
+      setSuggestionsLoading(false)
+    }
+  }
+
+  function handleCopySuggestions() {
+    if (!suggestionsResult) return
+    const text = suggestionsResult
+      .map((s) => `Gap: ${s.gap}\n→ ${s.bullet}`)
+      .join('\n\n')
+    navigator.clipboard.writeText(text)
+    setSuggestionsCopied(true)
+    setTimeout(() => setSuggestionsCopied(false), 2000)
+  }
+
+  async function handleDownloadPdf() {
+    if (!printRef.current) return
+    setDownloading(true)
+    try {
+      const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const imgHeight = (canvas.height * pageWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 0
+      pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight)
+      heightLeft -= pageHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      const title = structureRes?.title
+      pdf.save(title ? `Cover Letter(${title}).pdf` : 'Cover Letter.pdf')
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const anyStarted = steps.some((s) => s.status !== 'idle')
@@ -229,6 +345,14 @@ export default function AnalyzePage() {
             >
               {running ? 'Running…' : 'Analyze'}
             </button>
+            {anyStarted && !running && (
+              <button
+                onClick={handleClear}
+                className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Pipeline steps */}
@@ -291,8 +415,75 @@ export default function AnalyzePage() {
                       </li>
                     ))}
                   </ul>
+
+                  {/* CV Suggestions */}
+                  {!running && (
+                    <div className="mt-3 border-t border-zinc-100 pt-3">
+                      {!suggestionsResult && (
+                        <>
+                          <button
+                            onClick={handleGetSuggestions}
+                            disabled={suggestionsLoading}
+                            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {suggestionsLoading ? 'Generating…' : 'Get CV Suggestions'}
+                          </button>
+                          {suggestionsError && (
+                            <p className="mt-1.5 text-xs text-red-600">
+                              {suggestionsError}{' '}
+                              <button
+                                onClick={handleGetSuggestions}
+                                disabled={suggestionsLoading}
+                                className="underline hover:text-red-800 disabled:opacity-50"
+                              >
+                                Retry
+                              </button>
+                            </p>
+                          )}
+                        </>
+                      )}
+
+                      {suggestionsResult && (
+                        <div>
+                          <div className="mb-2 flex items-center justify-between">
+                            <p className="text-xs font-semibold text-zinc-700">CV Suggestions</p>
+                            <button
+                              onClick={handleCopySuggestions}
+                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                                suggestionsCopied
+                                  ? 'bg-green-500 text-white'
+                                  : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                              }`}
+                            >
+                              {suggestionsCopied ? 'Copied!' : 'Copy all'}
+                            </button>
+                          </div>
+                          <ul className="space-y-3">
+                            {suggestionsResult.map((s, i) => (
+                              <li key={i} className="text-xs">
+                                <p className="font-medium text-zinc-500">Gap: {s.gap}</p>
+                                <p className="mt-0.5 text-zinc-700">→ {s.bullet}</p>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Mark as Applied */}
+          {structureRes && !running && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAppliedModal(true)}
+                className="w-full rounded-xl border-2 border-dashed border-zinc-300 py-3 text-sm font-semibold text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+              >
+                Mark as Applied
+              </button>
             </div>
           )}
 
@@ -301,27 +492,68 @@ export default function AnalyzePage() {
             <div className="mt-6">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-semibold text-zinc-900">Cover Letter</p>
-                <button
-                  onClick={handleCopy}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    copied
-                      ? 'bg-green-500 text-white'
-                      : 'bg-zinc-900 text-white hover:bg-zinc-700'
-                  }`}
-                >
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCopy}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      copied
+                        ? 'bg-green-500 text-white'
+                        : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                    }`}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloading}
+                    className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+                  >
+                    {downloading ? 'Generating…' : 'Download PDF'}
+                  </button>
+                </div>
               </div>
               <textarea
-                readOnly
                 value={coverLetter}
+                onChange={(e) => setCoverLetter(e.target.value)}
                 rows={14}
-                className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-sm leading-relaxed text-zinc-700 shadow-sm outline-none"
+                className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-sm leading-relaxed text-zinc-700 shadow-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
               />
+              {/* Hidden div used for PDF rendering */}
+              <div
+                ref={printRef}
+                style={{
+                  position: 'absolute',
+                  left: '-9999px',
+                  top: 0,
+                  width: '794px',
+                  padding: '72px',
+                  fontFamily: "'Calibri Body', Calibri, sans-serif",
+                  fontSize: '12px',
+                  lineHeight: '1.5',
+                  color: '#000',
+                  backgroundColor: '#fff',
+                  whiteSpace: 'pre-wrap',
+                }}
+              >
+                {coverLetter}
+              </div>
             </div>
           )}
         </div>
       </div>
+      {showAppliedModal && (
+        <AddJobModal
+          onClose={() => setShowAppliedModal(false)}
+          prefill={{
+            companyName: structureRes?.company,
+            title: structureRes?.title,
+            location: structureRes?.location,
+            jobLink: url,
+            matchLevel: gapsResult?.score !== undefined ? Math.max(1, Math.round(gapsResult.score / 2)) : undefined,
+            analysis: buildAnalysisText() || undefined,
+          }}
+        />
+      )}
     </DashboardShell>
   )
 }

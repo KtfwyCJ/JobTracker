@@ -1,8 +1,8 @@
 Dear Hiring Manager,
 
-I am writing to apply for the XXXX position at your company. I am currently a Software Engineer (Working Student) in the Hyperspace department at SAP SE in Walldorf, and am completing my Master's degree in Business Informatics at the University of Mannheim.
+I am writing to apply for the XXXX position at your company. 
 
-My background includes over six years of experience in full-stack development, backend systems, and developer tooling. In recent work, I have been focusing on AI-assisted engineering systems and LLM-based workflows.
+My background includes over six years of experience in full-stack development, backend systems, and developer tooling. In recent work, I have been focusing on AI-assisted engineering systems and LLM-based workflows. I am currently a Software Engineer (Working Student) in the Hyperspace department at SAP SE in Walldorf, and am completing my Master's degree in Business Informatics at the University of Mannheim.
 
 At SAP, I developed a Go-based AI code remediation agent using the Eino framework, integrated with GitHub code scanning to generate fixes and create pull requests for automated issue resolution. I also built a Python-based RAG system for internal documentation and development resources, exposing retrieval capabilities through MCP server interfaces to support AI-assisted knowledge access within engineering workflows.
 

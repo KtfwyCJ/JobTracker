@@ -68,6 +68,16 @@ export default function Navbar({ onAddJob }: { onAddJob: () => void }) {
           >
             Analyze
           </Link>
+          <Link
+            href="/explore"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              pathname === '/explore'
+                ? 'bg-zinc-100 text-zinc-900'
+                : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            Explore
+          </Link>
         </nav>
       </div>
       <button

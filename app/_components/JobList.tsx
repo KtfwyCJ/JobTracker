@@ -2,18 +2,19 @@
 
 import { useState } from 'react'
 import { useStore } from '../_lib/store'
-import { STATUS_COLORS, STATUS_LABELS } from '../_lib/types'
+import { STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS } from '../_lib/types'
 import StarRating from './StarRating'
+import ChevronIcon from './ChevronIcon'
 
 const PALETTE = [
-  { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' }, // blue
-  { bg: '#dcfce7', text: '#166534', border: '#86efac' }, // green
-  { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' }, // pink
-  { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' }, // amber
-  { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' }, // purple
-  { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' }, // orange
-  { bg: '#cffafe', text: '#155e75', border: '#67e8f9' }, // cyan
-  { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' }, // red
+  { bg: '#dbeafe', text: '#1e40af', border: '#93c5fd' },
+  { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+  { bg: '#fce7f3', text: '#9d174d', border: '#f9a8d4' },
+  { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+  { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
+  { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+  { bg: '#cffafe', text: '#155e75', border: '#67e8f9' },
+  { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
 ]
 
 function companyTheme(name: string) {
@@ -21,6 +22,7 @@ function companyTheme(name: string) {
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) & 0xffff
   return PALETTE[h % PALETTE.length]
 }
+
 
 export default function JobList() {
   const { data, selectedJobId, setSelectedJobId, search, setSearch } = useStore()
@@ -54,7 +56,7 @@ export default function JobList() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search companies or jobs..."
-          className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
         />
       </div>
 
@@ -78,67 +80,73 @@ export default function JobList() {
 
           const isCollapsed = collapsedCompanies.has(company.id)
           const theme = companyTheme(company.name)
+          const initial = company.name.charAt(0).toUpperCase()
 
           return (
-            <div key={company.id} className="mb-2">
-              {/* Company header — left border accent, no background fill */}
+            <div key={company.id} className="mb-1">
+              {/* Company header */}
               <button
                 onClick={() => toggleCompany(company.id)}
-                className="flex w-full items-center gap-2 border-l-[3px] bg-white px-3 py-2 hover:bg-zinc-50 transition-colors"
-                style={{ borderLeftColor: theme.border }}
+                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-zinc-50 transition-colors"
               >
-                <span className="flex-1 text-left text-xs font-bold text-zinc-700">
+                {/* Colored initial avatar */}
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                  style={{ background: theme.bg, color: theme.text }}
+                >
+                  {initial}
+                </span>
+                <span className="flex-1 text-left text-xs font-bold text-zinc-700 truncate">
                   {company.name}
                 </span>
                 <span className="text-[10px] text-zinc-400">{jobs.length}</span>
-                <span className="text-[10px] text-zinc-400">
-                  {isCollapsed ? '▶' : '▼'}
-                </span>
+                <ChevronIcon open={!isCollapsed} />
               </button>
 
               {/* Job cards */}
               {!isCollapsed && (
-                <div className="mt-1 flex flex-col gap-1.5 px-2 pb-1">
+                <div className="mt-0.5 flex flex-col gap-1 px-2 pb-1">
                   {jobs.map((job) => {
                     const isSelected = selectedJobId === job.id
+                    const dotColor = STATUS_DOT_COLORS[job.status]
+
                     return (
                       <button
                         key={job.id}
                         onClick={() => setSelectedJobId(job.id)}
                         className={`w-full rounded-lg border p-2.5 text-left shadow-sm transition-all ${
                           isSelected
-                            ? 'border-indigo-300 bg-indigo-50/40 shadow-sm'
+                            ? 'border-zinc-900 bg-zinc-900 shadow-md'
                             : 'border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-md'
                         }`}
                       >
-                        {/* Top row: title + badges */}
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-[11.5px] font-semibold leading-snug text-zinc-900">
+                        {/* Top row: status dot + title + badge */}
+                        <div className="flex items-start gap-2">
+                          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+                          <span className={`flex-1 text-[11.5px] font-semibold leading-snug ${isSelected ? 'text-white' : 'text-zinc-900'}`}>
                             {job.title}
                           </span>
                           <div className="flex shrink-0 items-center gap-1">
                             {job.requiresGerman && (
-                              <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-medium text-amber-700">
+                              <span className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
                                 DE
                               </span>
                             )}
-                            <span
-                              className={`rounded border px-1.5 py-0.5 text-[9.5px] font-semibold ${STATUS_COLORS[job.status]}`}
-                            >
+                            <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : STATUS_COLORS[job.status]}`}>
                               {STATUS_LABELS[job.status]}
                             </span>
                           </div>
                         </div>
 
                         {/* Bottom row: date + stars */}
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-zinc-400">
-                            {new Date(job.appliedAt).toLocaleDateString('en-US', {
+                        <div className="mt-1.5 flex items-center justify-between gap-2 pl-4">
+                          <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-400'}`}>
+                            {new Date(job.appliedAt + 'T00:00:00').toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                             })}
                           </span>
-                          {job.matchLevel && (
+                          {job.matchLevel !== undefined && (
                             <StarRating value={job.matchLevel} readOnly />
                           )}
                         </div>

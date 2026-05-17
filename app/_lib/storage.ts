@@ -20,7 +20,7 @@ export function loadData(): AppData {
     return {
       ...parsed,
       // Migrate jobs created before requiresGerman field was added
-      jobs: (parsed.jobs ?? []).map((j: any) => ({ requiresGerman: false, ...j })),
+      jobs: (parsed.jobs ?? []).map((j: any) => ({ requiresGerman: false, analysis: undefined, ...j })),
       waitlist: parsed.waitlist ?? [],
     } as AppData
   } catch {

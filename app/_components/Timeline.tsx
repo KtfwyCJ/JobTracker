@@ -35,33 +35,33 @@ function EventRow({ evt }: { evt: TimelineEvent }) {
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             placeholder="Event title"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+            className="w-full rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
             required
           />
           <input
             type="date"
             value={editDate}
             onChange={(e) => setEditDate(e.target.value)}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+            className="rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
           />
           <textarea
             value={editNote}
             onChange={(e) => setEditNote(e.target.value)}
             placeholder="Notes (optional)"
             rows={2}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+            className="w-full rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
           />
           <div className="flex gap-2">
             <button
               type="submit"
-              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+              className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
             >
               Save
             </button>
             <button
               type="button"
               onClick={handleCancelEdit}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100"
+              className="rounded-xl px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100"
             >
               Cancel
             </button>
@@ -74,18 +74,21 @@ function EventRow({ evt }: { evt: TimelineEvent }) {
   return (
     <li className="group ml-4">
       <div className="absolute -left-1.5 mt-1 h-3 w-3 rounded-full border-2 border-white bg-zinc-400" />
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-baseline gap-2">
-          <p className="text-sm font-medium text-zinc-800">{evt.title}</p>
-          <time className="text-xs text-zinc-400">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          <time className="w-14 shrink-0 pt-px text-xs text-zinc-400">
             {new Date(evt.eventDate + 'T00:00:00').toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
             })}
           </time>
+          <div>
+            <p className="text-sm font-medium text-zinc-800">{evt.title}</p>
+            {evt.note && <p className="mt-0.5 text-sm text-zinc-500">{evt.note}</p>}
+          </div>
         </div>
         {mode === 'confirmDelete' ? (
-          <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+          <span className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
             Delete?
             <button
               onClick={() => deleteTimelineEvent(evt.id)}
@@ -99,7 +102,7 @@ function EventRow({ evt }: { evt: TimelineEvent }) {
             </button>
           </span>
         ) : (
-          <span className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => setMode('edit')}
               className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
@@ -115,7 +118,6 @@ function EventRow({ evt }: { evt: TimelineEvent }) {
           </span>
         )}
       </div>
-      {evt.note && <p className="mt-0.5 text-sm text-zinc-500">{evt.note}</p>}
     </li>
   )
 }
@@ -167,33 +169,33 @@ export default function Timeline({ jobId }: { jobId: string }) {
                 value={evtTitle}
                 onChange={(e) => setEvtTitle(e.target.value)}
                 placeholder="Event title"
-                className="w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+                className="w-full rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
                 required
               />
               <input
                 type="date"
                 value={evtDate}
                 onChange={(e) => setEvtDate(e.target.value)}
-                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+                className="rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
               />
               <textarea
                 value={evtNote}
                 onChange={(e) => setEvtNote(e.target.value)}
                 placeholder="Notes (optional)"
                 rows={2}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
+                className="w-full rounded-xl border border-zinc-300 px-3 py-1.5 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
               />
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
+                  className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => setAdding(false)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100"
+                  className="rounded-xl px-3 py-1.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100"
                 >
                   Cancel
                 </button>

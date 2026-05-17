@@ -12,7 +12,10 @@
       "Bash(git commit *)",
       "Skill(superpowers:brainstorming)",
       "Bash(bash *)",
-      "Bash(curl -s --max-time 2 http://localhost:49320)"
+      "Bash(curl -s --max-time 2 http://localhost:49320)",
+      "Bash(git -C /Users/chengjing/Desktop/Github/career-dashboard add docs/superpowers/specs/2026-05-17-cv-suggestions-design.md)",
+      "Bash(git -C /Users/chengjing/Desktop/Github/career-dashboard commit -m ' *)",
+      "Bash(git -C /Users/chengjing/Desktop/Github/career-dashboard add docs/superpowers/specs/2026-05-17-dashboard-redesign-design.md)"
     ]
   }
 }

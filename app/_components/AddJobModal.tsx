@@ -5,20 +5,30 @@ import type { Job } from '../_lib/types'
 import { useStore } from '../_lib/store'
 import StarRating from './StarRating'
 
-export default function AddJobModal({ onClose, job }: { onClose: () => void; job?: Job }) {
+interface PrefillData {
+  companyName?: string
+  title?: string
+  location?: string
+  jobLink?: string
+  matchLevel?: number
+  analysis?: string
+}
+
+export default function AddJobModal({ onClose, job, prefill }: { onClose: () => void; job?: Job; prefill?: PrefillData }) {
   const { addJob, updateJob, data, getCompany } = useStore()
 
   const editingCompany = job ? getCompany(job.companyId) : undefined
 
-  const [companyName, setCompanyName] = useState(editingCompany?.name ?? '')
-  const [title, setTitle] = useState(job?.title ?? '')
+  const [companyName, setCompanyName] = useState(editingCompany?.name ?? prefill?.companyName ?? '')
+  const [title, setTitle] = useState(job?.title ?? prefill?.title ?? '')
   const [description, setDescription] = useState(job?.description ?? '')
-  const [location, setLocation] = useState(job?.location ?? '')
+  const [location, setLocation] = useState(job?.location ?? prefill?.location ?? '')
   const [appliedAt, setAppliedAt] = useState(job?.appliedAt ?? new Date().toISOString().split('T')[0])
   const [requiresGerman, setRequiresGerman] = useState(job?.requiresGerman ?? false)
   const [jobPostingId, setJobPostingId] = useState(job?.jobPostingId ?? '')
-  const [jobLink, setJobLink] = useState(job?.jobLink ?? '')
-  const [matchLevel, setMatchLevel] = useState<number | undefined>(job?.matchLevel)
+  const [jobLink, setJobLink] = useState(job?.jobLink ?? prefill?.jobLink ?? '')
+  const [matchLevel, setMatchLevel] = useState<number | undefined>(job?.matchLevel ?? prefill?.matchLevel)
+  const [analysis, setAnalysis] = useState(job?.analysis ?? prefill?.analysis ?? '')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -38,7 +48,7 @@ export default function AddJobModal({ onClose, job }: { onClose: () => void; job
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!companyName.trim() || !title.trim()) return
-    const extra = { jobPostingId: jobPostingId.trim() || undefined, jobLink: jobLink.trim() || undefined, matchLevel }
+    const extra = { jobPostingId: jobPostingId.trim() || undefined, jobLink: jobLink.trim() || undefined, matchLevel, analysis: analysis.trim() || undefined }
     if (job) {
       updateJob({ jobId: job.id, companyName: companyName.trim(), title: title.trim(), description, location, appliedAt, requiresGerman, ...extra })
     } else {
@@ -118,6 +128,17 @@ export default function AddJobModal({ onClose, job }: { onClose: () => void; job
               placeholder="Role details, notes..."
               rows={3}
               className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700">Analysis</label>
+            <textarea
+              value={analysis}
+              onChange={(e) => setAnalysis(e.target.value)}
+              placeholder="CV match results, strengths, gaps..."
+              rows={4}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 font-mono text-xs outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
             />
           </div>
 
