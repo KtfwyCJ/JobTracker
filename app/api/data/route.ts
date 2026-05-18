@@ -1,23 +1,15 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import type { AppData } from '../../_lib/types'
 
 const DATA_FILE = join(process.cwd(), 'data.json')
-
-const DEFAULT: AppData = {
-  companies: [],
-  jobs: [],
-  timelineEvents: [],
-  interviews: [],
-  waitlist: [],
-}
 
 export async function GET() {
   try {
     const raw = readFileSync(DATA_FILE, 'utf-8')
     return Response.json(JSON.parse(raw))
   } catch {
-    return Response.json(DEFAULT)
+    // File doesn't exist yet — 404 so the client keeps localStorage data
+    return new Response(null, { status: 404 })
   }
 }
 

@@ -380,9 +380,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // Then fetch the authoritative file-based data
     fetch('/api/data')
-      .then(r => r.json())
-      .then((fileData: AppData) => {
-        dispatch({ type: 'LOAD', payload: fileData })
+      .then(r => r.ok ? r.json() : null)
+      .then((fileData: AppData | null) => {
+        // Only overwrite localStorage data if the file actually exists (r.ok)
+        // A 404 means first run — keep localStorage as-is
+        if (fileData !== null) {
+          dispatch({ type: 'LOAD', payload: fileData })
+        }
       })
       .catch(() => {
         // Server unavailable — localStorage data is already loaded
