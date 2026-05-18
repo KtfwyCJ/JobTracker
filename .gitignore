@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# personal job data backup (do not commit)
+data.json
+
 # personal CV and cover letter (do not commit)
 CV.md
 CV.tex

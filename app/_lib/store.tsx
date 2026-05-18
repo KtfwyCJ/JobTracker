@@ -5,6 +5,7 @@ import {
   useContext,
   useReducer,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -360,13 +361,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [search, setSearch] = useState<string>('')
+  const hydrated = useRef(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    // Show localStorage data immediately so the UI is never blank
     dispatch({ type: 'LOAD', payload: loadData() })
+
+    // Then fetch the authoritative file-based data
+    fetch('/api/data')
+      .then(r => r.json())
+      .then((fileData: AppData) => {
+        dispatch({ type: 'LOAD', payload: fileData })
+      })
+      .catch(() => {
+        // Server unavailable — localStorage data is already loaded
+      })
+      .finally(() => {
+        hydrated.current = true
+      })
   }, [])
 
   useEffect(() => {
+    if (!hydrated.current) return
+
     saveData(data)
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      fetch('/api/data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).catch(err => console.error('[backup] Failed to sync data.json:', err))
+    }, 500)
   }, [data])
 
   function addJob(payload: JobFields) {
