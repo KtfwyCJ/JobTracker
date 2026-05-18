@@ -47,6 +47,9 @@ CoverLetterTemplate.md
 # loose design/planning docs in root
 2026-05-11-job-tracker-design.md
 
+# internal planning/spec docs
+docs/
+
 # vercel
 .vercel
 
