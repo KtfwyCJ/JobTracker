@@ -333,6 +333,8 @@ interface StoreContextValue {
   setEditingJobId: (id: string | null) => void
   search: string
   setSearch: (q: string) => void
+  starFilter: number | null
+  setStarFilter: (n: number | null) => void
   addJob: (payload: JobFields) => void
   updateJob: (payload: { jobId: string } & JobFields) => void
   deleteJob: (jobId: string) => void
@@ -371,6 +373,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [search, setSearch] = useState<string>('')
+  const [starFilter, setStarFilter] = useState<number | null>(null)
   const hydrated = useRef(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -528,6 +531,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setEditingJobId,
         search,
         setSearch,
+        starFilter,
+        setStarFilter,
         addJob,
         updateJob,
         deleteJob,
