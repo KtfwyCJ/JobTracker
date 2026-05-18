@@ -9,12 +9,20 @@ import ChevronIcon from './ChevronIcon'
 import StatsPanel from './StatsPanel'
 
 export default function JobDetail() {
-  const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, setEditingJobId, deleteJob, getCompany } = useStore()
+  const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, updateRejectionEmail, setEditingJobId, deleteJob, getCompany } = useStore()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [descOpen, setDescOpen] = useState(true)
   const [analysisOpen, setAnalysisOpen] = useState(true)
+  const [rejectionEmailOpen, setRejectionEmailOpen] = useState(true)
+  const [emailDraft, setEmailDraft] = useState('')
+  const [emailSaved, setEmailSaved] = useState(false)
 
-  useEffect(() => { setConfirmingDelete(false) }, [selectedJobId])
+  useEffect(() => {
+    setConfirmingDelete(false)
+    setEmailDraft('')
+    setEmailSaved(false)
+    setRejectionEmailOpen(true)
+  }, [selectedJobId])
 
   const job = selectedJobId ? data.jobs.find((j) => j.id === selectedJobId) : undefined
 
@@ -190,6 +198,61 @@ export default function JobDetail() {
             </button>
             {analysisOpen && (
               <pre className="whitespace-pre-wrap border-l-2 border-zinc-300 bg-zinc-50 pl-3 py-2 font-mono text-xs leading-relaxed text-zinc-600 ml-5">{job.analysis}</pre>
+            )}
+          </div>
+        )}
+
+        {/* Rejection email — shown only when status is rejected */}
+        {job.status === 'rejected' && (
+          <div>
+            <button
+              onClick={() => setRejectionEmailOpen((o) => !o)}
+              className="mb-2 flex w-full items-center gap-1.5 text-left"
+            >
+              <ChevronIcon open={rejectionEmailOpen} />
+              <h3 className="text-sm font-semibold text-zinc-700">Rejection Email</h3>
+              {!job.rejectionEmail && (
+                <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-400">optional</span>
+              )}
+            </button>
+            {rejectionEmailOpen && (
+              <div className="ml-5 space-y-2">
+                {job.rejectionEmail ? (
+                  <>
+                    <pre className="whitespace-pre-wrap border-l-2 border-red-200 bg-red-50 pl-3 py-2 text-xs leading-relaxed text-zinc-600">{job.rejectionEmail}</pre>
+                    <button
+                      onClick={() => { updateRejectionEmail(job.id, ''); setEmailDraft('') }}
+                      className="text-[11px] text-zinc-400 hover:text-red-500 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <textarea
+                      value={emailDraft}
+                      onChange={(e) => { setEmailDraft(e.target.value); setEmailSaved(false) }}
+                      placeholder="Paste the rejection email here…"
+                      rows={6}
+                      className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100 resize-none"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (!emailDraft.trim()) return
+                          updateRejectionEmail(job.id, emailDraft.trim())
+                          setEmailSaved(true)
+                        }}
+                        disabled={!emailDraft.trim()}
+                        className="rounded-md bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-40"
+                      >
+                        Save
+                      </button>
+                      {emailSaved && <span className="text-xs text-green-600">Saved</span>}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}

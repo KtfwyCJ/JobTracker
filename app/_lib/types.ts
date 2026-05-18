@@ -67,6 +67,7 @@ export interface Job {
   jobLink?: string
   matchLevel?: number   // 1–5; undefined = unrated
   analysis?: string
+  rejectionEmail?: string
 }
 
 export interface WaitlistEntry {

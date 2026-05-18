@@ -43,6 +43,7 @@ type Action =
   | { type: 'DELETE_WAITLIST_ENTRY'; payload: { id: string } }
   | { type: 'UPDATE_WAITLIST_MATCH'; payload: { id: string; matchLevel: number } }
   | { type: 'PROMOTE_WAITLIST_ENTRY'; payload: { id: string } }
+  | { type: 'UPDATE_REJECTION_EMAIL'; payload: { jobId: string; rejectionEmail: string } }
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,14 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
+    case 'UPDATE_REJECTION_EMAIL': {
+      const { jobId, rejectionEmail } = action.payload
+      return {
+        ...state,
+        jobs: state.jobs.map((j) => (j.id === jobId ? { ...j, rejectionEmail } : j)),
+      }
+    }
+
     case 'PROMOTE_WAITLIST_ENTRY': {
       const { id } = action.payload
       const entry = state.waitlist.find((e) => e.id === id)
@@ -340,6 +349,7 @@ interface StoreContextValue {
   deleteWaitlistEntry: (id: string) => void
   updateWaitlistMatch: (id: string, matchLevel: number) => void
   promoteWaitlistEntry: (id: string) => void
+  updateRejectionEmail: (jobId: string, rejectionEmail: string) => void
   getCompany: (id: string) => Company | undefined
   getJob: (id: string) => Job | undefined
   getJobEvents: (jobId: string) => TimelineEvent[]
@@ -431,6 +441,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function promoteWaitlistEntry(id: string) {
     dispatch({ type: 'PROMOTE_WAITLIST_ENTRY', payload: { id } })
+  }
+
+  function updateRejectionEmail(jobId: string, rejectionEmail: string) {
+    dispatch({ type: 'UPDATE_REJECTION_EMAIL', payload: { jobId, rejectionEmail } })
   }
 
   function updateJobStatus(jobId: string, status: JobStatus) {
@@ -526,6 +540,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteWaitlistEntry,
         updateWaitlistMatch,
         promoteWaitlistEntry,
+        updateRejectionEmail,
         getCompany,
         getJob,
         getJobEvents,
