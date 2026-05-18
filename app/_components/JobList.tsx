@@ -36,7 +36,7 @@ const FILTER_CHIPS: { id: JobStatus | 'all'; label: string }[] = [
 ]
 
 export default function JobList() {
-  const { data, selectedJobId, setSelectedJobId, search, setSearch } = useStore()
+  const { data, selectedJobId, setSelectedJobId, search, setSearch, starFilter, setStarFilter } = useStore()
   const [collapsedCompanies, setCollapsedCompanies] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState<JobStatus | 'all'>('all')
 
@@ -50,13 +50,15 @@ export default function JobList() {
   }
 
   function handleChipClick(id: JobStatus | 'all') {
+    setStarFilter(null)
     setFilterStatus((prev) => (prev === id ? 'all' : id))
   }
 
   const q = search.toLowerCase()
 
-  function jobMatchesFilters(j: { companyId: string; status: JobStatus; title: string }, companyName: string) {
+  function jobMatchesFilters(j: { companyId: string; status: JobStatus; title: string; matchLevel?: number }, companyName: string) {
     if (filterStatus !== 'all' && j.status !== filterStatus) return false
+    if (starFilter !== null && j.matchLevel !== starFilter) return false
     if (!q) return true
     return companyName.toLowerCase().includes(q) || j.title.toLowerCase().includes(q)
   }
@@ -76,14 +78,33 @@ export default function JobList() {
         />
       </div>
 
-      {/* Status filter chips */}
+      {/* Status + star filter chips */}
       <div className="flex flex-wrap gap-1.5 border-b border-zinc-100 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (starFilter === 5) {
+              setStarFilter(null)
+            } else {
+              setStarFilter(5)
+              setFilterStatus('all')
+            }
+          }}
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+            starFilter === 5
+              ? 'bg-amber-500 text-white'
+              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+          }`}
+        >
+          ⭐ 5-Star
+        </button>
         {FILTER_CHIPS.map((chip) => (
           <button
             key={chip.id}
+            type="button"
             onClick={() => handleChipClick(chip.id)}
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
-              filterStatus === chip.id
+              filterStatus === chip.id && starFilter === null
                 ? 'bg-zinc-900 text-white'
                 : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
             }`}
