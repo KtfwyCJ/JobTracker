@@ -13,6 +13,7 @@ export default function Navbar({ onAddJob }: { onAddJob: () => void }) {
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4">
       <div className="flex items-center gap-6">
         <button
+          type="button"
           onClick={() => {
             setSelectedJobId(null)
             setStarFilter(null)
