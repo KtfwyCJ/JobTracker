@@ -107,6 +107,17 @@ export default function StatsPanel() {
     .filter((j) => j.matchLevel === 5)
     .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
 
+  // ── Recent Activity ────────────────────────────────────────────────────────
+  const recentEvents = [...data.timelineEvents]
+    .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 10)
+
+  // ── Upcoming Interviews ────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().split('T')[0]
+  const upcomingInterviews = data.interviews
+    .filter((i) => i.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+
   // ── Activity chart — last 8 weeks ──────────────────────────────────────────
   const today = new Date()
   const weeks: string[] = []
@@ -243,6 +254,87 @@ export default function StatsPanel() {
             </div>
           </div>
         )}
+
+        {/* Recent Activity */}
+        {recentEvents.length > 0 && (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <p className="mb-3 text-sm font-semibold text-zinc-700">Recent Activity</p>
+            <div className="flex flex-col gap-3">
+              {recentEvents.map((event) => {
+                const job = data.jobs.find((j) => j.id === event.jobId)
+                const company = job ? data.companies.find((c) => c.id === job.companyId) : undefined
+                if (!job) return null
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => { setSelectedJobId(job.id); router.push('/dashboard') }}
+                    className="flex items-start gap-2.5 text-left hover:opacity-75 transition-opacity"
+                  >
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${STATUS_DOT_COLORS[job.status]}`} />
+                    <div>
+                      <span className="text-xs font-semibold text-zinc-800">{company?.name}</span>
+                      <span className="text-xs text-zinc-500"> — {event.title}</span>
+                      <div className="mt-0.5 text-[11px] text-zinc-400">
+                        {new Date(event.eventDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Interviews */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-sm font-semibold text-zinc-700">Upcoming Interviews</p>
+          {upcomingInterviews.length === 0 ? (
+            <p className="text-center text-sm text-zinc-400 py-3">No interviews scheduled yet</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {upcomingInterviews.map((interview) => {
+                const job = data.jobs.find((j) => j.id === interview.jobId)
+                const company = job ? data.companies.find((c) => c.id === job.companyId) : undefined
+                if (!job) return null
+                const displayDate = new Date(interview.date + 'T00:00:00').toLocaleDateString('en-US', {
+                  weekday: 'short', month: 'short', day: 'numeric',
+                })
+                return (
+                  <button
+                    key={interview.id}
+                    type="button"
+                    onClick={() => { setSelectedJobId(job.id); router.push('/dashboard') }}
+                    className="flex items-start gap-3 text-left hover:opacity-75 transition-opacity"
+                  >
+                    <span className="shrink-0 rounded border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                      {INTERVIEW_TYPE_LABELS[interview.type]}
+                    </span>
+                    <div>
+                      <div className="text-xs font-semibold text-zinc-800">
+                        {company?.name} — {job.title}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-zinc-500">
+                        {displayDate} · {interview.time}
+                        {interview.link && (
+                          <a
+                            href={interview.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="ml-2 text-blue-500 hover:underline"
+                          >
+                            Join →
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Application activity */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
