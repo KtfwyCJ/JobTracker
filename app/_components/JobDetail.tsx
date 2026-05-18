@@ -6,6 +6,7 @@ import { JOB_STATUSES, STATUS_LABELS, STATUS_COLORS, type JobStatus } from '../_
 import Timeline from './Timeline'
 import StarRating from './StarRating'
 import ChevronIcon from './ChevronIcon'
+import StatsPanel from './StatsPanel'
 
 export default function JobDetail() {
   const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, setEditingJobId, deleteJob, getCompany } = useStore()
@@ -15,16 +16,11 @@ export default function JobDetail() {
 
   useEffect(() => { setConfirmingDelete(false) }, [selectedJobId])
 
-  if (!selectedJobId) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-zinc-400 text-sm">
-        Select a job to view details
-      </div>
-    )
-  }
+  const job = selectedJobId ? data.jobs.find((j) => j.id === selectedJobId) : undefined
 
-  const job = data.jobs.find((j) => j.id === selectedJobId)
-  if (!job) return null
+  if (!job) {
+    return <StatsPanel />
+  }
 
   const company = getCompany(job.companyId)
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useStore } from '../_lib/store'
-import { STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS } from '../_lib/types'
+import { STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS, type JobStatus } from '../_lib/types'
 import StarRating from './StarRating'
 import ChevronIcon from './ChevronIcon'
 
@@ -24,9 +24,21 @@ function companyTheme(name: string) {
 }
 
 
+const FILTER_CHIPS: { id: JobStatus | 'all'; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'applied', label: 'Applied' },
+  { id: 'phone_screen', label: 'Phone' },
+  { id: 'technical_interview', label: 'Tech' },
+  { id: 'onsite', label: 'Onsite' },
+  { id: 'offer', label: 'Offer' },
+  { id: 'accepted', label: 'Accepted' },
+  { id: 'rejected', label: 'Rejected' },
+]
+
 export default function JobList() {
   const { data, selectedJobId, setSelectedJobId, search, setSearch } = useStore()
   const [collapsedCompanies, setCollapsedCompanies] = useState<Set<string>>(new Set())
+  const [filterStatus, setFilterStatus] = useState<JobStatus | 'all'>('all')
 
   function toggleCompany(id: string) {
     setCollapsedCompanies((prev) => {
@@ -37,16 +49,20 @@ export default function JobList() {
     })
   }
 
+  function handleChipClick(id: JobStatus | 'all') {
+    setFilterStatus((prev) => (prev === id ? 'all' : id))
+  }
+
   const q = search.toLowerCase()
+
+  function jobMatchesFilters(j: { companyId: string; status: JobStatus; title: string }, companyName: string) {
+    if (filterStatus !== 'all' && j.status !== filterStatus) return false
+    if (!q) return true
+    return companyName.toLowerCase().includes(q) || j.title.toLowerCase().includes(q)
+  }
+
   const filteredCompanies = data.companies
-    .filter((c) => {
-      if (!data.jobs.some((j) => j.companyId === c.id)) return false
-      if (!q) return true
-      if (c.name.toLowerCase().includes(q)) return true
-      return data.jobs.some(
-        (j) => j.companyId === c.id && j.title.toLowerCase().includes(q)
-      )
-    })
+    .filter((c) => data.jobs.some((j) => j.companyId === c.id && jobMatchesFilters(j, c.name)))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
@@ -60,22 +76,32 @@ export default function JobList() {
         />
       </div>
 
+      {/* Status filter chips */}
+      <div className="flex flex-wrap gap-1.5 border-b border-zinc-100 px-3 py-2">
+        {FILTER_CHIPS.map((chip) => (
+          <button
+            key={chip.id}
+            onClick={() => handleChipClick(chip.id)}
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+              filterStatus === chip.id
+                ? 'bg-zinc-900 text-white'
+                : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
       <nav className="flex-1 overflow-y-auto py-2">
         {filteredCompanies.length === 0 && (
           <p className="px-4 py-8 text-center text-sm text-zinc-400">
-            {search ? 'No results' : 'No jobs yet — click + Add Job'}
+            {search || filterStatus !== 'all' ? 'No results' : 'No jobs yet — click + Add Job'}
           </p>
         )}
         {filteredCompanies.map((company) => {
           const jobs = data.jobs
-            .filter((j) => {
-              if (j.companyId !== company.id) return false
-              if (!q) return true
-              return (
-                company.name.toLowerCase().includes(q) ||
-                j.title.toLowerCase().includes(q)
-              )
-            })
+            .filter((j) => j.companyId === company.id && jobMatchesFilters(j, company.name))
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
           const isCollapsed = collapsedCompanies.has(company.id)
