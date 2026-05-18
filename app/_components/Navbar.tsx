@@ -1,22 +1,30 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useStore } from '../_lib/store'
 
 export default function Navbar({ onAddJob }: { onAddJob: () => void }) {
   const pathname = usePathname()
-  const { data } = useStore()
+  const router = useRouter()
+  const { data, setSelectedJobId, setStarFilter } = useStore()
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4">
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            setSelectedJobId(null)
+            setStarFilter(null)
+            router.push('/dashboard')
+          }}
+          className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+        >
           <span className="text-base font-semibold text-zinc-900">JobTracker</span>
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500">
             {data.jobs.length} applied
           </span>
-        </div>
+        </button>
         <nav className="flex items-center gap-1">
           <Link
             href="/dashboard"
