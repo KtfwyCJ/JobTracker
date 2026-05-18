@@ -11,7 +11,7 @@ import {
   Cell,
 } from 'recharts'
 import { useStore } from '../_lib/store'
-import { JOB_STATUSES, STATUS_LABELS, INTERVIEW_TYPE_LABELS, type JobStatus } from '../_lib/types'
+import { JOB_STATUSES, STATUS_LABELS, STATUS_DOT_COLORS, INTERVIEW_TYPE_LABELS, type JobStatus } from '../_lib/types'
 
 const STATUS_HEX: Record<JobStatus, string> = {
   applied: '#3b82f6',
@@ -23,15 +23,6 @@ const STATUS_HEX: Record<JobStatus, string> = {
   rejected: '#ef4444',
 }
 
-const STATUS_HEX_BG: Record<JobStatus, string> = {
-  applied: 'bg-blue-500',
-  phone_screen: 'bg-purple-500',
-  technical_interview: 'bg-cyan-500',
-  onsite: 'bg-orange-500',
-  offer: 'bg-amber-500',
-  accepted: 'bg-green-500',
-  rejected: 'bg-red-500',
-}
 
 function StatCard({
   value,
@@ -98,8 +89,7 @@ export default function StatsPanel() {
   ).length
 
   // ── Pipeline funnel ────────────────────────────────────────────────────────
-  const FUNNEL_STAGES: JobStatus[] = ['applied', 'phone_screen', 'technical_interview', 'onsite', 'offer', 'accepted', 'rejected']
-  const funnelData = FUNNEL_STAGES.map((s) => ({
+  const funnelData = JOB_STATUSES.map((s) => ({
     status: s,
     label: STATUS_LABELS[s],
     count: data.jobs.filter((j) => j.status === s).length,
@@ -233,7 +223,7 @@ export default function StatsPanel() {
                   <button
                     key={job.id}
                     type="button"
-                    onClick={() => setSelectedJobId(job.id)}
+                    onClick={() => { setSelectedJobId(job.id); router.push('/dashboard') }}
                     className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-left hover:bg-amber-100 transition-colors"
                   >
                     <div>
