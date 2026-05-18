@@ -108,14 +108,16 @@ export default function StatsPanel() {
     .sort((a, b) => b.appliedAt.localeCompare(a.appliedAt))
 
   // ── Recent Activity ────────────────────────────────────────────────────────
+  const jobIds = new Set(data.jobs.map((j) => j.id))
   const recentEvents = [...data.timelineEvents]
+    .filter((e) => jobIds.has(e.jobId))
     .sort((a, b) => b.eventDate.localeCompare(a.eventDate) || b.createdAt.localeCompare(a.createdAt))
     .slice(0, 10)
 
   // ── Upcoming Interviews ────────────────────────────────────────────────────
   const todayStr = new Date().toISOString().split('T')[0]
   const upcomingInterviews = data.interviews
-    .filter((i) => i.date >= todayStr)
+    .filter((i) => i.date >= todayStr && jobIds.has(i.jobId))
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
 
   // ── Activity chart — last 8 weeks ──────────────────────────────────────────
