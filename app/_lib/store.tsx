@@ -15,10 +15,15 @@ import type {
   Company,
   DailyLog,
   Interview,
+  InterviewTip,
   Job,
   JobStatus,
   LearningResource,
   LearningResourceStatus,
+  PrepItem,
+  PrepQuestion,
+  PrepSource,
+  QuestionKind,
   TimelineEvent,
   WaitlistEntry,
 } from './types'
@@ -54,6 +59,16 @@ type Action =
   | { type: 'ADD_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; text: string } }
   | { type: 'TOGGLE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
   | { type: 'DELETE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
+  | { type: 'ADD_INTERVIEW_TIP'; payload: { id: string; company: string; position: string; linkedJobId?: string } }
+  | { type: 'UPDATE_INTERVIEW_TIP'; payload: { id: string } & Partial<Omit<InterviewTip, 'id' | 'createdAt'>> }
+  | { type: 'DELETE_INTERVIEW_TIP'; payload: { id: string } }
+  | { type: 'ADD_TIP_QUESTION'; payload: { tipId: string; kind: QuestionKind; text: string; url?: string } }
+  | { type: 'DELETE_TIP_QUESTION'; payload: { tipId: string; questionId: string } }
+  | { type: 'ADD_TIP_SOURCE'; payload: { tipId: string; label: string; url?: string } }
+  | { type: 'DELETE_TIP_SOURCE'; payload: { tipId: string; sourceId: string } }
+  | { type: 'TOGGLE_TIP_ITEM'; payload: { tipId: string; itemId: string } }
+  | { type: 'ADD_TIP_ITEM'; payload: { tipId: string; text: string } }
+  | { type: 'DELETE_TIP_ITEM'; payload: { tipId: string; itemId: string } }
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +81,7 @@ function reducer(state: AppData, action: Action): AppData {
         waitlist: action.payload.waitlist ?? [],
         learningResources: action.payload.learningResources ?? [],
         dailyLogs: action.payload.dailyLogs ?? [],
+        interviewTips: action.payload.interviewTips ?? [],
       }
 
     case 'ADD_JOB': {
@@ -419,6 +435,139 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
+    case 'ADD_INTERVIEW_TIP': {
+      const { id, company, position, linkedJobId } = action.payload
+      const now = new Date().toISOString()
+      const defaultChecklist: PrepItem[] = [
+        { id: uuidv4(), text: 'Research company culture & values', done: false },
+        { id: uuidv4(), text: 'Prepare 3 STAR stories', done: false },
+        { id: uuidv4(), text: 'Review the job description thoroughly', done: false },
+        { id: uuidv4(), text: 'Prepare questions to ask the interviewer', done: false },
+        { id: uuidv4(), text: 'Test meeting link / check tech setup', done: false },
+        { id: uuidv4(), text: 'Review your resume talking points', done: false },
+      ]
+      const tip: InterviewTip = {
+        id,
+        company,
+        position,
+        linkedJobId,
+        notes: '',
+        questions: [],
+        sources: [],
+        checklist: defaultChecklist,
+        createdAt: now,
+        updatedAt: now,
+      }
+      return { ...state, interviewTips: [...state.interviewTips, tip] }
+    }
+
+    case 'UPDATE_INTERVIEW_TIP': {
+      const { id, ...patch } = action.payload
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t
+        ),
+      }
+    }
+
+    case 'DELETE_INTERVIEW_TIP':
+      return {
+        ...state,
+        interviewTips: state.interviewTips.filter((t) => t.id !== action.payload.id),
+      }
+
+    case 'ADD_TIP_QUESTION': {
+      const { tipId, kind, text, url } = action.payload
+      const question: PrepQuestion = { id: uuidv4(), kind, text, url }
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, questions: [...t.questions, question], updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
+    case 'DELETE_TIP_QUESTION': {
+      const { tipId, questionId } = action.payload
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, questions: t.questions.filter((q) => q.id !== questionId), updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
+    case 'ADD_TIP_SOURCE': {
+      const { tipId, label, url } = action.payload
+      const source: PrepSource = { id: uuidv4(), label, url }
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, sources: [...t.sources, source], updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
+    case 'DELETE_TIP_SOURCE': {
+      const { tipId, sourceId } = action.payload
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, sources: t.sources.filter((s) => s.id !== sourceId), updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
+    case 'TOGGLE_TIP_ITEM': {
+      const { tipId, itemId } = action.payload
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? {
+                ...t,
+                checklist: t.checklist.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i)),
+                updatedAt: new Date().toISOString(),
+              }
+            : t
+        ),
+      }
+    }
+
+    case 'ADD_TIP_ITEM': {
+      const { tipId, text } = action.payload
+      const item: PrepItem = { id: uuidv4(), text, done: false }
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, checklist: [...t.checklist, item], updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
+    case 'DELETE_TIP_ITEM': {
+      const { tipId, itemId } = action.payload
+      return {
+        ...state,
+        interviewTips: state.interviewTips.map((t) =>
+          t.id === tipId
+            ? { ...t, checklist: t.checklist.filter((i) => i.id !== itemId), updatedAt: new Date().toISOString() }
+            : t
+        ),
+      }
+    }
+
     default:
       return state
   }
@@ -461,6 +610,16 @@ interface StoreContextValue {
   toggleLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   deleteLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   getDailyLog: (date: string) => DailyLog | undefined
+  addInterviewTip: (company: string, position: string, linkedJobId?: string) => string
+  updateInterviewTip: (id: string, patch: Partial<Omit<InterviewTip, 'id' | 'createdAt'>>) => void
+  deleteInterviewTip: (id: string) => void
+  addTipQuestion: (tipId: string, kind: QuestionKind, text: string, url?: string) => void
+  deleteTipQuestion: (tipId: string, questionId: string) => void
+  addTipSource: (tipId: string, label: string, url?: string) => void
+  deleteTipSource: (tipId: string, sourceId: string) => void
+  toggleTipItem: (tipId: string, itemId: string) => void
+  addTipItem: (tipId: string, text: string) => void
+  deleteTipItem: (tipId: string, itemId: string) => void
   getCompany: (id: string) => Company | undefined
   getJob: (id: string) => Job | undefined
   getJobEvents: (jobId: string) => TimelineEvent[]
@@ -480,6 +639,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     waitlist: [],
     learningResources: [],
     dailyLogs: [],
+    interviewTips: [],
   })
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
@@ -625,6 +785,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data.dailyLogs.find((l) => l.date === date)
   }
 
+  function addInterviewTip(company: string, position: string, linkedJobId?: string): string {
+    const id = uuidv4()
+    dispatch({ type: 'ADD_INTERVIEW_TIP', payload: { id, company, position, linkedJobId } })
+    return id
+  }
+
+  function updateInterviewTip(id: string, patch: Partial<Omit<InterviewTip, 'id' | 'createdAt'>>) {
+    dispatch({ type: 'UPDATE_INTERVIEW_TIP', payload: { id, ...patch } })
+  }
+
+  function deleteInterviewTip(id: string) {
+    dispatch({ type: 'DELETE_INTERVIEW_TIP', payload: { id } })
+  }
+
+  function addTipQuestion(tipId: string, kind: QuestionKind, text: string, url?: string) {
+    dispatch({ type: 'ADD_TIP_QUESTION', payload: { tipId, kind, text, url } })
+  }
+
+  function deleteTipQuestion(tipId: string, questionId: string) {
+    dispatch({ type: 'DELETE_TIP_QUESTION', payload: { tipId, questionId } })
+  }
+
+  function addTipSource(tipId: string, label: string, url?: string) {
+    dispatch({ type: 'ADD_TIP_SOURCE', payload: { tipId, label, url } })
+  }
+
+  function deleteTipSource(tipId: string, sourceId: string) {
+    dispatch({ type: 'DELETE_TIP_SOURCE', payload: { tipId, sourceId } })
+  }
+
+  function toggleTipItem(tipId: string, itemId: string) {
+    dispatch({ type: 'TOGGLE_TIP_ITEM', payload: { tipId, itemId } })
+  }
+
+  function addTipItem(tipId: string, text: string) {
+    dispatch({ type: 'ADD_TIP_ITEM', payload: { tipId, text } })
+  }
+
+  function deleteTipItem(tipId: string, itemId: string) {
+    dispatch({ type: 'DELETE_TIP_ITEM', payload: { tipId, itemId } })
+  }
+
   function getCompany(id: string) {
     return data.companies.find((c) => c.id === id)
   }
@@ -701,6 +903,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toggleLogItem,
         deleteLogItem,
         getDailyLog,
+        addInterviewTip,
+        updateInterviewTip,
+        deleteInterviewTip,
+        addTipQuestion,
+        deleteTipQuestion,
+        addTipSource,
+        deleteTipSource,
+        toggleTipItem,
+        addTipItem,
+        deleteTipItem,
         getCompany,
         getJob,
         getJobEvents,

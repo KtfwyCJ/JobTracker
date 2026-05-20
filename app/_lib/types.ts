@@ -166,6 +166,40 @@ export interface DailyLog {
   updatedAt: string
 }
 
+export type QuestionKind = 'text' | 'link'
+
+export interface PrepQuestion {
+  id: string
+  kind: QuestionKind
+  text: string
+  url?: string
+}
+
+export interface PrepSource {
+  id: string
+  label: string
+  url?: string
+}
+
+export interface PrepItem {
+  id: string
+  text: string
+  done: boolean
+}
+
+export interface InterviewTip {
+  id: string
+  company: string
+  position: string
+  linkedJobId?: string
+  notes: string
+  questions: PrepQuestion[]
+  sources: PrepSource[]
+  checklist: PrepItem[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AppData {
   companies: Company[]
   jobs: Job[]
@@ -174,4 +208,5 @@ export interface AppData {
   waitlist: WaitlistEntry[]
   learningResources: LearningResource[]
   dailyLogs: DailyLog[]
+  interviewTips: InterviewTip[]
 }

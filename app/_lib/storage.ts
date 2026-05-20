@@ -10,6 +10,7 @@ const DEFAULT_DATA: AppData = {
   waitlist: [],
   learningResources: [],
   dailyLogs: [],
+  interviewTips: [],
 }
 
 export function loadData(): AppData {
@@ -26,6 +27,7 @@ export function loadData(): AppData {
       waitlist: parsed.waitlist ?? [],
       learningResources: parsed.learningResources ?? [],
       dailyLogs: parsed.dailyLogs ?? [],
+      interviewTips: parsed.interviewTips ?? [],
     } as AppData
   } catch {
     return DEFAULT_DATA
