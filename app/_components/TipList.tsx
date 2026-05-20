@@ -19,7 +19,7 @@ export default function TipList({ tips, selectedId, onSelect }: Props) {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
       <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-3 py-2.5">
         <span className="text-sm font-semibold text-zinc-900">Interview Prep</span>
         <button

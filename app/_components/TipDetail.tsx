@@ -121,9 +121,9 @@ export default function TipDetail({ tip, onDeleted }: Props) {
   const total = tip.checklist.length
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white">
       {/* Tab bar + header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-zinc-100 px-4 pt-3">
+      <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-4 pt-3">
         <div className="flex items-end gap-1">
           <TabBtn active={tab === 'detail'} onClick={() => setTab('detail')}>Detail</TabBtn>
           <TabBtn active={tab === 'guide'} onClick={() => setTab('guide')}>Guide</TabBtn>
@@ -147,7 +147,7 @@ export default function TipDetail({ tip, onDeleted }: Props) {
       </div>
 
       {/* Tip title */}
-      <div className="shrink-0 border-b border-zinc-100 px-4 py-2">
+      <div className="shrink-0 border-b border-zinc-200 px-4 py-2">
         <h2 className="text-sm font-bold text-zinc-900">{tip.company}</h2>
         <div className="flex items-center gap-1.5 text-xs text-zinc-500">
           <span>{tip.position}</span>

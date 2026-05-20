@@ -16,15 +16,17 @@ export default function TipsPage() {
 
   return (
     <DashboardShell>
-      <div className="flex flex-1 gap-4 overflow-hidden p-4">
-        <div className="w-64 shrink-0 overflow-hidden">
+      <div className="flex h-full w-full flex-1 overflow-hidden bg-white">
+        {/* Left sidebar */}
+        <div className="w-64 shrink-0 border-r border-zinc-200">
           <TipList
             tips={data.interviewTips}
             selectedId={selectedTipId}
             onSelect={setSelectedTipId}
           />
         </div>
-        <div className="flex flex-1 overflow-hidden">
+        {/* Right panel — fills all remaining space */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {selectedTip ? (
             <TipDetail
               key={selectedTip.id}
@@ -32,7 +34,7 @@ export default function TipsPage() {
               onDeleted={() => setSelectedTipId(null)}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center rounded-xl border border-zinc-200 bg-white">
+            <div className="flex h-full items-center justify-center">
               <p className="text-sm text-zinc-400">Select a prep entry or create a new one</p>
             </div>
           )}
