@@ -40,13 +40,17 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
     }
   }
 
+  function localIso(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
   function interviewsForDate(date: Date): Interview[] {
-    const iso = date.toISOString().split('T')[0]
+    const iso = localIso(date)
     return interviews.filter((i) => i.date === iso)
   }
 
   function appliedJobsForDate(date: Date): Job[] {
-    const iso = date.toISOString().split('T')[0]
+    const iso = localIso(date)
     return appliedJobs.filter((j) => j.appliedAt === iso)
   }
 
@@ -70,7 +74,7 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
           const allEvents = [...dayApplied.map(j => ({ kind: 'applied' as const, job: j })), ...dayInterviews.map(i => ({ kind: 'interview' as const, interview: i }))]
           const visible = allEvents.slice(0, 3)
           const overflow = allEvents.length - visible.length
-          const isoDate = cell.date.toISOString().split('T')[0]
+          const isoDate = localIso(cell.date)
 
           return (
             <div

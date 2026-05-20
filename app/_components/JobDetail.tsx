@@ -7,6 +7,7 @@ import Timeline from './Timeline'
 import StarRating from './StarRating'
 import ChevronIcon from './ChevronIcon'
 import StatsPanel from './StatsPanel'
+import StatusInterviewModal from './StatusInterviewModal'
 
 export default function JobDetail() {
   const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, updateRejectionEmail, setEditingJobId, deleteJob, getCompany } = useStore()
@@ -16,6 +17,7 @@ export default function JobDetail() {
   const [rejectionEmailOpen, setRejectionEmailOpen] = useState(true)
   const [emailDraft, setEmailDraft] = useState('')
   const [emailSaved, setEmailSaved] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<JobStatus | null>(null)
 
   useEffect(() => {
     setConfirmingDelete(false)
@@ -138,10 +140,17 @@ export default function JobDetail() {
           <div className="flex flex-wrap gap-1.5">
             {JOB_STATUSES.map((s) => {
               const isActive = job.status === s
+              const needsModal = s === 'phone_screen' || s === 'technical_interview'
               return (
                 <button
                   key={s}
-                  onClick={() => updateJobStatus(job.id, s as JobStatus)}
+                  onClick={() => {
+                    if (needsModal && !isActive) {
+                      setPendingStatus(s as JobStatus)
+                    } else {
+                      updateJobStatus(job.id, s as JobStatus)
+                    }
+                  }}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                     isActive
                       ? 'border-zinc-900 bg-zinc-900 text-white'
@@ -259,6 +268,14 @@ export default function JobDetail() {
 
         <Timeline jobId={job.id} />
       </div>
+
+      {pendingStatus && (
+        <StatusInterviewModal
+          jobId={job.id}
+          status={pendingStatus}
+          onClose={() => setPendingStatus(null)}
+        />
+      )}
     </div>
   )
 }

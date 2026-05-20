@@ -8,6 +8,8 @@ const DEFAULT_DATA: AppData = {
   timelineEvents: [],
   interviews: [],
   waitlist: [],
+  learningResources: [],
+  dailyLogs: [],
 }
 
 export function loadData(): AppData {
@@ -22,6 +24,8 @@ export function loadData(): AppData {
       // Migrate jobs created before requiresGerman field was added
       jobs: (parsed.jobs ?? []).map((j: any) => ({ requiresGerman: false, analysis: undefined, ...j })),
       waitlist: parsed.waitlist ?? [],
+      learningResources: parsed.learningResources ?? [],
+      dailyLogs: parsed.dailyLogs ?? [],
     } as AppData
   } catch {
     return DEFAULT_DATA

@@ -114,10 +114,64 @@ export interface Interview {
   createdAt: string
 }
 
+export type LearningResourceType = 'book' | 'repo' | 'article' | 'project' | 'other'
+export type LearningResourceStatus = 'want_to_learn' | 'in_progress' | 'done'
+
+export const LEARNING_RESOURCE_TYPES: LearningResourceType[] = ['book', 'repo', 'article', 'project', 'other']
+export const LEARNING_RESOURCE_TYPE_LABELS: Record<LearningResourceType, string> = {
+  book: 'Book',
+  repo: 'Repo',
+  article: 'Article',
+  project: 'Project',
+  other: 'Other',
+}
+
+export const LEARNING_RESOURCE_STATUS_LABELS: Record<LearningResourceStatus, string> = {
+  want_to_learn: 'Want to Learn',
+  in_progress: 'In Progress',
+  done: 'Done',
+}
+
+export const LEARNING_RESOURCE_STATUS_COLORS: Record<LearningResourceStatus, string> = {
+  want_to_learn: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  done: 'bg-green-100 text-green-700',
+}
+
+export interface LearningResource {
+  id: string
+  title: string
+  type: LearningResourceType
+  url?: string
+  author?: string
+  status: LearningResourceStatus
+  notes?: string
+  linkedJobIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DailyLogItem {
+  id: string
+  text: string
+  done: boolean
+}
+
+export interface DailyLog {
+  id: string
+  date: string
+  doneItems: DailyLogItem[]
+  planItems: DailyLogItem[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AppData {
   companies: Company[]
   jobs: Job[]
   timelineEvents: TimelineEvent[]
   interviews: Interview[]
   waitlist: WaitlistEntry[]
+  learningResources: LearningResource[]
+  dailyLogs: DailyLog[]
 }

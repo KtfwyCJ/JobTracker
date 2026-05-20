@@ -13,9 +13,12 @@ import { v4 as uuidv4 } from 'uuid'
 import type {
   AppData,
   Company,
+  DailyLog,
   Interview,
   Job,
   JobStatus,
+  LearningResource,
+  LearningResourceStatus,
   TimelineEvent,
   WaitlistEntry,
 } from './types'
@@ -30,7 +33,7 @@ type Action =
   | { type: 'ADD_JOB'; payload: JobFields }
   | { type: 'UPDATE_JOB'; payload: { jobId: string } & JobFields }
   | { type: 'DELETE_JOB'; payload: { jobId: string } }
-  | { type: 'UPDATE_JOB_STATUS'; payload: { jobId: string; status: JobStatus } }
+  | { type: 'UPDATE_JOB_STATUS'; payload: { jobId: string; status: JobStatus; note?: string } }
   | { type: 'UPDATE_JOB_LANGUAGE'; payload: { jobId: string; requiresGerman: boolean } }
   | { type: 'UPDATE_JOB_MATCH'; payload: { jobId: string; matchLevel: number } }
   | { type: 'ADD_TIMELINE_EVENT'; payload: { jobId: string; title: string; note: string; eventDate: string } }
@@ -44,13 +47,26 @@ type Action =
   | { type: 'UPDATE_WAITLIST_MATCH'; payload: { id: string; matchLevel: number } }
   | { type: 'PROMOTE_WAITLIST_ENTRY'; payload: { id: string } }
   | { type: 'UPDATE_REJECTION_EMAIL'; payload: { jobId: string; rejectionEmail: string } }
+  | { type: 'ADD_LEARNING_RESOURCE'; payload: Omit<LearningResource, 'id' | 'createdAt' | 'updatedAt'> }
+  | { type: 'UPDATE_LEARNING_RESOURCE'; payload: { id: string } & Partial<Omit<LearningResource, 'id' | 'createdAt'>> }
+  | { type: 'DELETE_LEARNING_RESOURCE'; payload: { id: string } }
+  | { type: 'UPSERT_DAILY_LOG'; payload: { date: string } }
+  | { type: 'ADD_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; text: string } }
+  | { type: 'TOGGLE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
+  | { type: 'DELETE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 function reducer(state: AppData, action: Action): AppData {
   switch (action.type) {
     case 'LOAD':
-      return { ...action.payload, interviews: action.payload.interviews ?? [], waitlist: action.payload.waitlist ?? [] }
+      return {
+        ...action.payload,
+        interviews: action.payload.interviews ?? [],
+        waitlist: action.payload.waitlist ?? [],
+        learningResources: action.payload.learningResources ?? [],
+        dailyLogs: action.payload.dailyLogs ?? [],
+      }
 
     case 'ADD_JOB': {
       const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis } = action.payload
@@ -133,7 +149,7 @@ function reducer(state: AppData, action: Action): AppData {
     }
 
     case 'UPDATE_JOB_STATUS': {
-      const { jobId, status } = action.payload
+      const { jobId, status, note } = action.payload
       const now = new Date().toISOString()
 
       const statusLabel: Record<JobStatus, string> = {
@@ -150,7 +166,7 @@ function reducer(state: AppData, action: Action): AppData {
         id: uuidv4(),
         jobId,
         title: `Status updated to ${statusLabel[status]}`,
-        note: '',
+        note: note ?? '',
         eventDate: now.split('T')[0],
         createdAt: now,
       }
@@ -318,6 +334,91 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
+    case 'ADD_LEARNING_RESOURCE': {
+      const now = new Date().toISOString()
+      const resource: LearningResource = {
+        ...action.payload,
+        id: uuidv4(),
+        createdAt: now,
+        updatedAt: now,
+      }
+      return { ...state, learningResources: [...state.learningResources, resource] }
+    }
+
+    case 'UPDATE_LEARNING_RESOURCE': {
+      const { id, ...patch } = action.payload
+      return {
+        ...state,
+        learningResources: state.learningResources.map((r) =>
+          r.id === id ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r
+        ),
+      }
+    }
+
+    case 'DELETE_LEARNING_RESOURCE':
+      return {
+        ...state,
+        learningResources: state.learningResources.filter((r) => r.id !== action.payload.id),
+      }
+
+    case 'UPSERT_DAILY_LOG': {
+      const { date } = action.payload
+      if (state.dailyLogs.find((l) => l.date === date)) return state
+      const now = new Date().toISOString()
+      const log: DailyLog = {
+        id: uuidv4(),
+        date,
+        doneItems: [],
+        planItems: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      return { ...state, dailyLogs: [...state.dailyLogs, log] }
+    }
+
+    case 'ADD_LOG_ITEM': {
+      const { date, section, text } = action.payload
+      const item = { id: uuidv4(), text, done: false }
+      return {
+        ...state,
+        dailyLogs: state.dailyLogs.map((l) => {
+          if (l.date !== date) return l
+          return section === 'done'
+            ? { ...l, doneItems: [...l.doneItems, item], updatedAt: new Date().toISOString() }
+            : { ...l, planItems: [...l.planItems, item], updatedAt: new Date().toISOString() }
+        }),
+      }
+    }
+
+    case 'TOGGLE_LOG_ITEM': {
+      const { date, section, itemId } = action.payload
+      return {
+        ...state,
+        dailyLogs: state.dailyLogs.map((l) => {
+          if (l.date !== date) return l
+          const toggle = (items: DailyLog['doneItems']) =>
+            items.map((i) => (i.id === itemId ? { ...i, done: !i.done } : i))
+          return section === 'done'
+            ? { ...l, doneItems: toggle(l.doneItems), updatedAt: new Date().toISOString() }
+            : { ...l, planItems: toggle(l.planItems), updatedAt: new Date().toISOString() }
+        }),
+      }
+    }
+
+    case 'DELETE_LOG_ITEM': {
+      const { date, section, itemId } = action.payload
+      return {
+        ...state,
+        dailyLogs: state.dailyLogs.map((l) => {
+          if (l.date !== date) return l
+          const remove = (items: DailyLog['doneItems']) => items.filter((i) => i.id !== itemId)
+          return section === 'done'
+            ? { ...l, doneItems: remove(l.doneItems), updatedAt: new Date().toISOString() }
+            : { ...l, planItems: remove(l.planItems), updatedAt: new Date().toISOString() }
+        }),
+      }
+    }
+
     default:
       return state
   }
@@ -338,7 +439,7 @@ interface StoreContextValue {
   addJob: (payload: JobFields) => void
   updateJob: (payload: { jobId: string } & JobFields) => void
   deleteJob: (jobId: string) => void
-  updateJobStatus: (jobId: string, status: JobStatus) => void
+  updateJobStatus: (jobId: string, status: JobStatus, note?: string) => void
   updateJobLanguage: (jobId: string, requiresGerman: boolean) => void
   updateJobMatch: (jobId: string, matchLevel: number) => void
   addTimelineEvent: (jobId: string, title: string, note: string, eventDate: string) => void
@@ -352,6 +453,14 @@ interface StoreContextValue {
   updateWaitlistMatch: (id: string, matchLevel: number) => void
   promoteWaitlistEntry: (id: string) => void
   updateRejectionEmail: (jobId: string, rejectionEmail: string) => void
+  addLearningResource: (payload: Omit<LearningResource, 'id' | 'createdAt' | 'updatedAt'>) => void
+  updateLearningResource: (id: string, patch: Partial<Omit<LearningResource, 'id' | 'createdAt'>>) => void
+  deleteLearningResource: (id: string) => void
+  upsertDailyLog: (date: string) => void
+  addLogItem: (date: string, section: 'done' | 'plan', text: string) => void
+  toggleLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
+  deleteLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
+  getDailyLog: (date: string) => DailyLog | undefined
   getCompany: (id: string) => Company | undefined
   getJob: (id: string) => Job | undefined
   getJobEvents: (jobId: string) => TimelineEvent[]
@@ -369,6 +478,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     timelineEvents: [],
     interviews: [],
     waitlist: [],
+    learningResources: [],
+    dailyLogs: [],
   })
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
@@ -454,8 +565,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'UPDATE_REJECTION_EMAIL', payload: { jobId, rejectionEmail } })
   }
 
-  function updateJobStatus(jobId: string, status: JobStatus) {
-    dispatch({ type: 'UPDATE_JOB_STATUS', payload: { jobId, status } })
+  function updateJobStatus(jobId: string, status: JobStatus, note?: string) {
+    dispatch({ type: 'UPDATE_JOB_STATUS', payload: { jobId, status, note } })
   }
 
   function addTimelineEvent(jobId: string, title: string, note: string, eventDate: string) {
@@ -480,6 +591,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function deleteInterview(id: string) {
     dispatch({ type: 'DELETE_INTERVIEW', payload: { id } })
+  }
+
+  function addLearningResource(payload: Omit<LearningResource, 'id' | 'createdAt' | 'updatedAt'>) {
+    dispatch({ type: 'ADD_LEARNING_RESOURCE', payload })
+  }
+
+  function updateLearningResource(id: string, patch: Partial<Omit<LearningResource, 'id' | 'createdAt'>>) {
+    dispatch({ type: 'UPDATE_LEARNING_RESOURCE', payload: { id, ...patch } })
+  }
+
+  function deleteLearningResource(id: string) {
+    dispatch({ type: 'DELETE_LEARNING_RESOURCE', payload: { id } })
+  }
+
+  function upsertDailyLog(date: string) {
+    dispatch({ type: 'UPSERT_DAILY_LOG', payload: { date } })
+  }
+
+  function addLogItem(date: string, section: 'done' | 'plan', text: string) {
+    dispatch({ type: 'ADD_LOG_ITEM', payload: { date, section, text } })
+  }
+
+  function toggleLogItem(date: string, section: 'done' | 'plan', itemId: string) {
+    dispatch({ type: 'TOGGLE_LOG_ITEM', payload: { date, section, itemId } })
+  }
+
+  function deleteLogItem(date: string, section: 'done' | 'plan', itemId: string) {
+    dispatch({ type: 'DELETE_LOG_ITEM', payload: { date, section, itemId } })
+  }
+
+  function getDailyLog(date: string) {
+    return data.dailyLogs.find((l) => l.date === date)
   }
 
   function getCompany(id: string) {
@@ -550,6 +693,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateWaitlistMatch,
         promoteWaitlistEntry,
         updateRejectionEmail,
+        addLearningResource,
+        updateLearningResource,
+        deleteLearningResource,
+        upsertDailyLog,
+        addLogItem,
+        toggleLogItem,
+        deleteLogItem,
+        getDailyLog,
         getCompany,
         getJob,
         getJobEvents,
