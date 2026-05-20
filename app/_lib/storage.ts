@@ -11,6 +11,7 @@ const DEFAULT_DATA: AppData = {
   learningResources: [],
   dailyLogs: [],
   interviewTips: [],
+  planDocument: '',
 }
 
 export function loadData(): AppData {
@@ -29,6 +30,7 @@ export function loadData(): AppData {
       dailyLogs: parsed.dailyLogs ?? [],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       interviewTips: (parsed.interviewTips ?? []).map((t: any) => ({ guide: '', ...t })),
+      planDocument: parsed.planDocument ?? '',
     } as AppData
   } catch {
     return DEFAULT_DATA

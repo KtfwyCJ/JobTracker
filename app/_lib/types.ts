@@ -210,4 +210,5 @@ export interface AppData {
   learningResources: LearningResource[]
   dailyLogs: DailyLog[]
   interviewTips: InterviewTip[]
+  planDocument: string
 }

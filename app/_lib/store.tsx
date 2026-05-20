@@ -59,6 +59,7 @@ type Action =
   | { type: 'ADD_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; text: string } }
   | { type: 'TOGGLE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
   | { type: 'DELETE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
+  | { type: 'UPDATE_PLAN_DOCUMENT'; payload: { content: string } }
   | { type: 'ADD_INTERVIEW_TIP'; payload: { id: string; company: string; position: string; linkedJobId?: string } }
   | { type: 'UPDATE_INTERVIEW_TIP'; payload: { id: string } & Partial<Omit<InterviewTip, 'id' | 'createdAt'>> }
   | { type: 'DELETE_INTERVIEW_TIP'; payload: { id: string } }
@@ -82,6 +83,7 @@ function reducer(state: AppData, action: Action): AppData {
         learningResources: action.payload.learningResources ?? [],
         dailyLogs: action.payload.dailyLogs ?? [],
         interviewTips: action.payload.interviewTips ?? [],
+        planDocument: action.payload.planDocument ?? '',
       }
 
     case 'ADD_JOB': {
@@ -435,6 +437,9 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
+    case 'UPDATE_PLAN_DOCUMENT':
+      return { ...state, planDocument: action.payload.content }
+
     case 'ADD_INTERVIEW_TIP': {
       const { id, company, position, linkedJobId } = action.payload
       const now = new Date().toISOString()
@@ -611,6 +616,7 @@ interface StoreContextValue {
   toggleLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   deleteLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   getDailyLog: (date: string) => DailyLog | undefined
+  updatePlanDocument: (content: string) => void
   addInterviewTip: (company: string, position: string, linkedJobId?: string) => string
   updateInterviewTip: (id: string, patch: Partial<Omit<InterviewTip, 'id' | 'createdAt'>>) => void
   deleteInterviewTip: (id: string) => void
@@ -641,6 +647,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     learningResources: [],
     dailyLogs: [],
     interviewTips: [],
+    planDocument: '',
   })
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
@@ -786,6 +793,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data.dailyLogs.find((l) => l.date === date)
   }
 
+  function updatePlanDocument(content: string) {
+    dispatch({ type: 'UPDATE_PLAN_DOCUMENT', payload: { content } })
+  }
+
   function addInterviewTip(company: string, position: string, linkedJobId?: string): string {
     const id = uuidv4()
     dispatch({ type: 'ADD_INTERVIEW_TIP', payload: { id, company, position, linkedJobId } })
@@ -904,6 +915,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toggleLogItem,
         deleteLogItem,
         getDailyLog,
+        updatePlanDocument,
         addInterviewTip,
         updateInterviewTip,
         deleteInterviewTip,

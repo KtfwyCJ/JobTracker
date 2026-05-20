@@ -107,6 +107,16 @@ export default function Navbar({ onAddJob }: { onAddJob: () => void }) {
           >
             Tips
           </Link>
+          <Link
+            href="/plan"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              pathname === '/plan'
+                ? 'bg-zinc-100 text-zinc-900'
+                : 'text-zinc-500 hover:text-zinc-900'
+            }`}
+          >
+            Plan
+          </Link>
         </nav>
       </div>
       <button
