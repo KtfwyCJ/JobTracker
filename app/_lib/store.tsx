@@ -455,6 +455,7 @@ function reducer(state: AppData, action: Action): AppData {
         questions: [],
         sources: [],
         checklist: defaultChecklist,
+        guide: '',
         createdAt: now,
         updatedAt: now,
       }

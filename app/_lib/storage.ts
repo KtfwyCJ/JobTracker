@@ -27,7 +27,8 @@ export function loadData(): AppData {
       waitlist: parsed.waitlist ?? [],
       learningResources: parsed.learningResources ?? [],
       dailyLogs: parsed.dailyLogs ?? [],
-      interviewTips: parsed.interviewTips ?? [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      interviewTips: (parsed.interviewTips ?? []).map((t: any) => ({ guide: '', ...t })),
     } as AppData
   } catch {
     return DEFAULT_DATA

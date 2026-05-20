@@ -196,6 +196,7 @@ export interface InterviewTip {
   questions: PrepQuestion[]
   sources: PrepSource[]
   checklist: PrepItem[]
+  guide: string
   createdAt: string
   updatedAt: string
 }
