@@ -12,6 +12,7 @@ import {
 import { v4 as uuidv4 } from 'uuid'
 import type {
   AppData,
+  CalendarEvent,
   Company,
   DailyLog,
   Interview,
@@ -20,6 +21,7 @@ import type {
   JobStatus,
   LearningResource,
   LearningResourceStatus,
+  Plan,
   PrepItem,
   PrepQuestion,
   PrepSource,
@@ -59,7 +61,10 @@ type Action =
   | { type: 'ADD_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; text: string } }
   | { type: 'TOGGLE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
   | { type: 'DELETE_LOG_ITEM'; payload: { date: string; section: 'done' | 'plan'; itemId: string } }
-  | { type: 'UPDATE_PLAN_DOCUMENT'; payload: { content: string } }
+  | { type: 'ADD_PLAN'; payload: { id: string } }
+  | { type: 'UPDATE_PLAN'; payload: { id: string } & Partial<Pick<Plan, 'title' | 'content'>> }
+  | { type: 'DELETE_PLAN'; payload: { id: string } }
+  | { type: 'REORDER_PLANS'; payload: { orderedIds: string[] } }
   | { type: 'ADD_INTERVIEW_TIP'; payload: { id: string; company: string; position: string; linkedJobId?: string } }
   | { type: 'UPDATE_INTERVIEW_TIP'; payload: { id: string } & Partial<Omit<InterviewTip, 'id' | 'createdAt'>> }
   | { type: 'DELETE_INTERVIEW_TIP'; payload: { id: string } }
@@ -70,6 +75,9 @@ type Action =
   | { type: 'TOGGLE_TIP_ITEM'; payload: { tipId: string; itemId: string } }
   | { type: 'ADD_TIP_ITEM'; payload: { tipId: string; text: string } }
   | { type: 'DELETE_TIP_ITEM'; payload: { tipId: string; itemId: string } }
+  | { type: 'ADD_CALENDAR_EVENT'; payload: Omit<CalendarEvent, 'id' | 'createdAt'> }
+  | { type: 'UPDATE_CALENDAR_EVENT'; payload: { id: string } & Partial<Omit<CalendarEvent, 'id' | 'createdAt'>> }
+  | { type: 'DELETE_CALENDAR_EVENT'; payload: { id: string } }
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
@@ -83,7 +91,8 @@ function reducer(state: AppData, action: Action): AppData {
         learningResources: action.payload.learningResources ?? [],
         dailyLogs: action.payload.dailyLogs ?? [],
         interviewTips: action.payload.interviewTips ?? [],
-        planDocument: action.payload.planDocument ?? '',
+        plans: action.payload.plans ?? [],
+        calendarEvents: action.payload.calendarEvents ?? [],
       }
 
     case 'ADD_JOB': {
@@ -437,8 +446,30 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
-    case 'UPDATE_PLAN_DOCUMENT':
-      return { ...state, planDocument: action.payload.content }
+    case 'ADD_PLAN': {
+      const now = new Date().toISOString()
+      const plan: Plan = { id: action.payload.id, title: 'Untitled Plan', content: '', createdAt: now, updatedAt: now }
+      return { ...state, plans: [...state.plans, plan] }
+    }
+
+    case 'UPDATE_PLAN': {
+      const { id, ...patch } = action.payload
+      return {
+        ...state,
+        plans: state.plans.map((p) =>
+          p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p
+        ),
+      }
+    }
+
+    case 'DELETE_PLAN':
+      return { ...state, plans: state.plans.filter((p) => p.id !== action.payload.id) }
+
+    case 'REORDER_PLANS': {
+      const { orderedIds } = action.payload
+      const map = new Map(state.plans.map((p) => [p.id, p]))
+      return { ...state, plans: orderedIds.map((id) => map.get(id)!).filter(Boolean) }
+    }
 
     case 'ADD_INTERVIEW_TIP': {
       const { id, company, position, linkedJobId } = action.payload
@@ -574,6 +605,31 @@ function reducer(state: AppData, action: Action): AppData {
       }
     }
 
+    case 'ADD_CALENDAR_EVENT': {
+      const event: CalendarEvent = {
+        ...action.payload,
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, calendarEvents: [...state.calendarEvents, event] }
+    }
+
+    case 'UPDATE_CALENDAR_EVENT': {
+      const { id, ...patch } = action.payload
+      return {
+        ...state,
+        calendarEvents: state.calendarEvents.map((e) =>
+          e.id === id ? { ...e, ...patch } : e
+        ),
+      }
+    }
+
+    case 'DELETE_CALENDAR_EVENT':
+      return {
+        ...state,
+        calendarEvents: state.calendarEvents.filter((e) => e.id !== action.payload.id),
+      }
+
     default:
       return state
   }
@@ -616,7 +672,10 @@ interface StoreContextValue {
   toggleLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   deleteLogItem: (date: string, section: 'done' | 'plan', itemId: string) => void
   getDailyLog: (date: string) => DailyLog | undefined
-  updatePlanDocument: (content: string) => void
+  addPlan: () => string
+  updatePlan: (id: string, patch: Partial<Pick<Plan, 'title' | 'content'>>) => void
+  deletePlan: (id: string) => void
+  reorderPlans: (orderedIds: string[]) => void
   addInterviewTip: (company: string, position: string, linkedJobId?: string) => string
   updateInterviewTip: (id: string, patch: Partial<Omit<InterviewTip, 'id' | 'createdAt'>>) => void
   deleteInterviewTip: (id: string) => void
@@ -633,6 +692,11 @@ interface StoreContextValue {
   getInterviewsForMonth: (year: number, month: number) => Interview[]
   getInterviewsForWeek: (weekStart: Date) => Interview[]
   getJobsAppliedForMonth: (year: number, month: number) => Job[]
+  addCalendarEvent: (payload: Omit<CalendarEvent, 'id' | 'createdAt'>) => void
+  updateCalendarEvent: (id: string, patch: Partial<Omit<CalendarEvent, 'id' | 'createdAt'>>) => void
+  deleteCalendarEvent: (id: string) => void
+  getCalendarEventsForMonth: (year: number, month: number) => CalendarEvent[]
+  getCalendarEventsForWeek: (weekStart: Date) => CalendarEvent[]
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null)
@@ -647,7 +711,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     learningResources: [],
     dailyLogs: [],
     interviewTips: [],
-    planDocument: '',
+    plans: [],
+    calendarEvents: [],
   })
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
@@ -793,8 +858,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return data.dailyLogs.find((l) => l.date === date)
   }
 
-  function updatePlanDocument(content: string) {
-    dispatch({ type: 'UPDATE_PLAN_DOCUMENT', payload: { content } })
+  function addPlan(): string {
+    const id = uuidv4()
+    dispatch({ type: 'ADD_PLAN', payload: { id } })
+    return id
+  }
+
+  function updatePlan(id: string, patch: Partial<Pick<Plan, 'title' | 'content'>>) {
+    dispatch({ type: 'UPDATE_PLAN', payload: { id, ...patch } })
+  }
+
+  function deletePlan(id: string) {
+    dispatch({ type: 'DELETE_PLAN', payload: { id } })
+  }
+
+  function reorderPlans(orderedIds: string[]) {
+    dispatch({ type: 'REORDER_PLANS', payload: { orderedIds } })
   }
 
   function addInterviewTip(company: string, position: string, linkedJobId?: string): string {
@@ -837,6 +916,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function deleteTipItem(tipId: string, itemId: string) {
     dispatch({ type: 'DELETE_TIP_ITEM', payload: { tipId, itemId } })
+  }
+
+  function addCalendarEvent(payload: Omit<CalendarEvent, 'id' | 'createdAt'>) {
+    dispatch({ type: 'ADD_CALENDAR_EVENT', payload })
+  }
+
+  function updateCalendarEvent(id: string, patch: Partial<Omit<CalendarEvent, 'id' | 'createdAt'>>) {
+    dispatch({ type: 'UPDATE_CALENDAR_EVENT', payload: { id, ...patch } })
+  }
+
+  function deleteCalendarEvent(id: string) {
+    dispatch({ type: 'DELETE_CALENDAR_EVENT', payload: { id } })
+  }
+
+  function getCalendarEventsForMonth(year: number, month: number): CalendarEvent[] {
+    return data.calendarEvents.filter((e) => {
+      const d = new Date(e.date + 'T00:00:00')
+      return d.getFullYear() === year && d.getMonth() === month
+    })
+  }
+
+  function getCalendarEventsForWeek(weekStart: Date): CalendarEvent[] {
+    const start = new Date(weekStart)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(start)
+    end.setDate(end.getDate() + 7)
+    return data.calendarEvents.filter((e) => {
+      const d = new Date(e.date + 'T00:00:00')
+      return d >= start && d < end
+    })
   }
 
   function getCompany(id: string) {
@@ -915,7 +1024,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toggleLogItem,
         deleteLogItem,
         getDailyLog,
-        updatePlanDocument,
+        addPlan,
+        updatePlan,
+        deletePlan,
+        reorderPlans,
         addInterviewTip,
         updateInterviewTip,
         deleteInterviewTip,
@@ -932,6 +1044,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         getInterviewsForMonth,
         getInterviewsForWeek,
         getJobsAppliedForMonth,
+        addCalendarEvent,
+        updateCalendarEvent,
+        deleteCalendarEvent,
+        getCalendarEventsForMonth,
+        getCalendarEventsForWeek,
       }}
     >
       {children}

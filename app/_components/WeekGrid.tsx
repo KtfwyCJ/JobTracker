@@ -1,11 +1,14 @@
 'use client'
 
-import type { Interview } from '../_lib/types'
+import type { CalendarEvent, Interview } from '../_lib/types'
 import InterviewBlock from './InterviewBlock'
+import CalendarEventBlock from './CalendarEventBlock'
 
 interface Props {
   weekStart: Date // Monday of the week
   interviews: Interview[]
+  calendarEvents: CalendarEvent[]
+  onDayClick: (date: string, time: string) => void
 }
 
 const HOUR_START = 8
@@ -18,7 +21,7 @@ function formatHour(h: number) {
   return `${h12} ${ampm}`
 }
 
-export default function WeekGrid({ weekStart, interviews }: Props) {
+export default function WeekGrid({ weekStart, interviews, calendarEvents, onDayClick }: Props) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -29,9 +32,24 @@ export default function WeekGrid({ weekStart, interviews }: Props) {
     days.push(d)
   }
 
+  function localIso(date: Date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  function slotToTime(slot: number) {
+    const hour = HOUR_START + Math.floor(slot / 2)
+    const minute = (slot % 2) * 30
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  }
+
   function interviewsForDay(date: Date): Interview[] {
-    const iso = date.toISOString().split('T')[0]
+    const iso = localIso(date)
     return interviews.filter((i) => i.date === iso)
+  }
+
+  function calendarEventsForDay(date: Date): CalendarEvent[] {
+    const iso = localIso(date)
+    return calendarEvents.filter((e) => e.date === iso)
   }
 
   return (
@@ -84,13 +102,14 @@ export default function WeekGrid({ weekStart, interviews }: Props) {
             )
           })}
 
-          {/* Hour divider lines (cols 2-8) */}
+          {/* Hour divider lines (cols 2-8) — clickable to schedule */}
           {Array.from({ length: TOTAL_SLOTS }).map((_, slot) => (
             Array.from({ length: 7 }).map((__, col) => (
               <div
                 key={`grid-${slot}-${col}`}
+                onClick={() => onDayClick(localIso(days[col]), slotToTime(slot))}
                 style={{ gridRow: slot + 1, gridColumn: col + 2 }}
-                className={`border-r border-zinc-100 last:border-r-0 ${
+                className={`cursor-pointer border-r border-zinc-100 last:border-r-0 hover:bg-blue-50/40 ${
                   slot % 2 === 0 ? 'border-t border-zinc-200' : 'border-t border-zinc-100'
                 }`}
               />
@@ -104,6 +123,17 @@ export default function WeekGrid({ weekStart, interviews }: Props) {
               if (hour < HOUR_START || hour >= HOUR_END) return null
               return (
                 <InterviewBlock key={interview.id} interview={interview} col={colIdx + 2} />
+              )
+            })
+          )}
+
+          {/* Calendar event blocks */}
+          {days.map((day, colIdx) =>
+            calendarEventsForDay(day).map((event) => {
+              const [hour] = event.time.split(':').map(Number)
+              if (hour < HOUR_START || hour >= HOUR_END) return null
+              return (
+                <CalendarEventBlock key={event.id} event={event} col={colIdx + 2} />
               )
             })
           )}

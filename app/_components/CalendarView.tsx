@@ -5,6 +5,8 @@ import { useStore } from '../_lib/store'
 import MonthGrid from './MonthGrid'
 import WeekGrid from './WeekGrid'
 import ScheduleInterviewModal from './ScheduleInterviewModal'
+import AddDailyEventModal from './AddDailyEventModal'
+import EventTypePicker from './EventTypePicker'
 
 type ViewMode = 'month' | 'week'
 
@@ -23,12 +25,15 @@ const MONTH_NAMES = [
 ]
 
 export default function CalendarView() {
-  const { getInterviewsForMonth, getInterviewsForWeek, getJobsAppliedForMonth } = useStore()
+  const { getInterviewsForMonth, getInterviewsForWeek, getJobsAppliedForMonth, getCalendarEventsForMonth, getCalendarEventsForWeek } = useStore()
 
   const [view, setView] = useState<ViewMode>('month')
   const [currentDate, setCurrentDate] = useState(() => new Date())
-  const [showModal, setShowModal] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
+  const [showInterviewModal, setShowInterviewModal] = useState(false)
+  const [showDailyModal, setShowDailyModal] = useState(false)
   const [defaultDate, setDefaultDate] = useState<string | undefined>()
+  const [defaultTime, setDefaultTime] = useState<string | undefined>()
 
   // Derive display state
   const year = currentDate.getFullYear()
@@ -38,6 +43,8 @@ export default function CalendarView() {
   const monthInterviews = getInterviewsForMonth(year, month)
   const weekInterviews = getInterviewsForWeek(weekStart)
   const monthApplied = getJobsAppliedForMonth(year, month)
+  const monthCalendarEvents = getCalendarEventsForMonth(year, month)
+  const weekCalendarEvents = getCalendarEventsForWeek(weekStart)
 
   function navigate(dir: 1 | -1) {
     if (view === 'month') {
@@ -58,9 +65,34 @@ export default function CalendarView() {
     return `${startFmt} – ${endFmt}`
   }
 
-  function handleDayClick(date: string) {
+  function handleDayClick(date: string, time?: string) {
     setDefaultDate(date)
-    setShowModal(true)
+    setDefaultTime(time)
+    setShowPicker(true)
+  }
+
+  function handlePickerSelect(type: 'interview' | 'daily') {
+    setShowPicker(false)
+    if (type === 'interview') setShowInterviewModal(true)
+    else setShowDailyModal(true)
+  }
+
+  function handlePickerClose() {
+    setShowPicker(false)
+    setDefaultDate(undefined)
+    setDefaultTime(undefined)
+  }
+
+  function closeInterviewModal() {
+    setShowInterviewModal(false)
+    setDefaultDate(undefined)
+    setDefaultTime(undefined)
+  }
+
+  function closeDailyModal() {
+    setShowDailyModal(false)
+    setDefaultDate(undefined)
+    setDefaultTime(undefined)
   }
 
   return (
@@ -106,11 +138,11 @@ export default function CalendarView() {
           </div>
 
           <button
-            onClick={() => { setDefaultDate(undefined); setShowModal(true) }}
+            onClick={() => { setDefaultDate(undefined); setDefaultTime(undefined); setShowPicker(true) }}
             className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
           >
             <span className="text-base leading-none">+</span>
-            Schedule Interview
+            Add Event
           </button>
         </div>
       </div>
@@ -122,16 +154,33 @@ export default function CalendarView() {
           month={month}
           interviews={monthInterviews}
           appliedJobs={monthApplied}
+          calendarEvents={monthCalendarEvents}
           onDayClick={handleDayClick}
         />
       ) : (
-        <WeekGrid weekStart={weekStart} interviews={weekInterviews} />
+        <WeekGrid
+          weekStart={weekStart}
+          interviews={weekInterviews}
+          calendarEvents={weekCalendarEvents}
+          onDayClick={handleDayClick}
+        />
       )}
 
-      {showModal && (
+      {showPicker && (
+        <EventTypePicker onSelect={handlePickerSelect} onClose={handlePickerClose} />
+      )}
+      {showInterviewModal && (
         <ScheduleInterviewModal
           defaultDate={defaultDate}
-          onClose={() => { setShowModal(false); setDefaultDate(undefined) }}
+          defaultTime={defaultTime}
+          onClose={closeInterviewModal}
+        />
+      )}
+      {showDailyModal && (
+        <AddDailyEventModal
+          defaultDate={defaultDate}
+          defaultTime={defaultTime}
+          onClose={closeDailyModal}
         />
       )}
     </div>

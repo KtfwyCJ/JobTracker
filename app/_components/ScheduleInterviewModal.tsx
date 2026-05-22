@@ -13,16 +13,17 @@ import {
 interface Props {
   initial?: Interview
   defaultDate?: string
+  defaultTime?: string
   onClose: () => void
 }
 
-export default function ScheduleInterviewModal({ initial, defaultDate, onClose }: Props) {
+export default function ScheduleInterviewModal({ initial, defaultDate, defaultTime, onClose }: Props) {
   const { data, addInterview, updateInterview, getCompany } = useStore()
 
   const [jobId, setJobId] = useState(initial?.jobId ?? '')
   const [type, setType] = useState<InterviewType>(initial?.type ?? 'phone_screen')
   const [date, setDate] = useState(initial?.date ?? defaultDate ?? new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState(initial?.time ?? '10:00')
+  const [time, setTime] = useState(initial?.time ?? defaultTime ?? '10:00')
   const [duration, setDuration] = useState<number>(initial?.duration ?? 60)
   const [interviewer, setInterviewer] = useState(initial?.interviewer ?? '')
   const [link, setLink] = useState(initial?.link ?? '')

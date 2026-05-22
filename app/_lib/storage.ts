@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid'
 import type { AppData } from './types'
 
 const STORAGE_KEY = 'job-tracker-data'
@@ -11,7 +12,8 @@ const DEFAULT_DATA: AppData = {
   learningResources: [],
   dailyLogs: [],
   interviewTips: [],
-  planDocument: '',
+  plans: [],
+  calendarEvents: [],
 }
 
 export function loadData(): AppData {
@@ -30,7 +32,16 @@ export function loadData(): AppData {
       dailyLogs: parsed.dailyLogs ?? [],
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       interviewTips: (parsed.interviewTips ?? []).map((t: any) => ({ guide: '', ...t })),
-      planDocument: parsed.planDocument ?? '',
+      plans: (() => {
+        if (parsed.plans && parsed.plans.length > 0) return parsed.plans
+        // Migrate single planDocument to first plan
+        if (parsed.planDocument && typeof parsed.planDocument === 'string' && parsed.planDocument.trim()) {
+          const now = new Date().toISOString()
+          return [{ id: uuidv4(), title: 'My Plan', content: parsed.planDocument, createdAt: now, updatedAt: now }]
+        }
+        return []
+      })(),
+      calendarEvents: parsed.calendarEvents ?? [],
     } as AppData
   } catch {
     return DEFAULT_DATA

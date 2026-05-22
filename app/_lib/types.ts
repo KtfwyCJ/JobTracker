@@ -201,6 +201,24 @@ export interface InterviewTip {
   updatedAt: string
 }
 
+export interface Plan {
+  id: string
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  date: string        // YYYY-MM-DD
+  time: string        // HH:MM (24h)
+  duration: number    // minutes
+  description: string
+  createdAt: string
+}
+
 export interface AppData {
   companies: Company[]
   jobs: Job[]
@@ -210,5 +228,6 @@ export interface AppData {
   learningResources: LearningResource[]
   dailyLogs: DailyLog[]
   interviewTips: InterviewTip[]
-  planDocument: string
+  plans: Plan[]
+  calendarEvents: CalendarEvent[]
 }

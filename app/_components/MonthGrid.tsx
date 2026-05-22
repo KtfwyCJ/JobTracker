@@ -1,20 +1,22 @@
 'use client'
 
-import type { Interview, Job } from '../_lib/types'
+import type { CalendarEvent, Interview, Job } from '../_lib/types'
 import InterviewChip from './InterviewChip'
 import ApplicationChip from './ApplicationChip'
+import CalendarEventChip from './CalendarEventChip'
 
 interface Props {
   year: number
   month: number // 0-indexed
   interviews: Interview[]
   appliedJobs: Job[]
+  calendarEvents: CalendarEvent[]
   onDayClick: (date: string) => void
 }
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-export default function MonthGrid({ year, month, interviews, appliedJobs, onDayClick }: Props) {
+export default function MonthGrid({ year, month, interviews, appliedJobs, calendarEvents, onDayClick }: Props) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -54,6 +56,11 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
     return appliedJobs.filter((j) => j.appliedAt === iso)
   }
 
+  function calendarEventsForDate(date: Date): CalendarEvent[] {
+    const iso = localIso(date)
+    return calendarEvents.filter((e) => e.date === iso)
+  }
+
   return (
     <div className="flex flex-col gap-0 rounded-xl border border-zinc-200 bg-white overflow-hidden">
       {/* Day-of-week header */}
@@ -71,7 +78,12 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
           const isToday = cell.date.getTime() === today.getTime()
           const dayInterviews = interviewsForDate(cell.date)
           const dayApplied = appliedJobsForDate(cell.date)
-          const allEvents = [...dayApplied.map(j => ({ kind: 'applied' as const, job: j })), ...dayInterviews.map(i => ({ kind: 'interview' as const, interview: i }))]
+          const dayCalendarEvents = calendarEventsForDate(cell.date)
+          const allEvents = [
+            ...dayApplied.map(j => ({ kind: 'applied' as const, job: j })),
+            ...dayInterviews.map(i => ({ kind: 'interview' as const, interview: i })),
+            ...dayCalendarEvents.map(e => ({ kind: 'event' as const, event: e })),
+          ]
           const visible = allEvents.slice(0, 3)
           const overflow = allEvents.length - visible.length
           const isoDate = localIso(cell.date)
@@ -79,7 +91,8 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
           return (
             <div
               key={idx}
-              className={`min-h-24 border-b border-r border-zinc-100 p-1 last:border-r-0 ${
+              onClick={() => onDayClick(isoDate)}
+              className={`min-h-24 cursor-pointer border-b border-r border-zinc-100 p-1 last:border-r-0 hover:bg-zinc-50 ${
                 !cell.isCurrentMonth ? 'bg-zinc-50' : ''
               }`}
             >
@@ -100,13 +113,15 @@ export default function MonthGrid({ year, month, interviews, appliedJobs, onDayC
                 {visible.map((ev, i) =>
                   ev.kind === 'applied' ? (
                     <ApplicationChip key={`a-${ev.job.id}`} job={ev.job} />
-                  ) : (
+                  ) : ev.kind === 'interview' ? (
                     <InterviewChip key={`i-${ev.interview.id}`} interview={ev.interview} />
+                  ) : (
+                    <CalendarEventChip key={`e-${ev.event.id}`} event={ev.event} />
                   )
                 )}
                 {overflow > 0 && (
                   <button
-                    onClick={() => onDayClick(isoDate)}
+                    onClick={(e) => { e.stopPropagation(); onDayClick(isoDate) }}
                     className="rounded px-1 py-0.5 text-left text-xs text-zinc-400 hover:bg-zinc-100"
                   >
                     +{overflow} more
