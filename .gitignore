@@ -36,6 +36,9 @@ yarn-error.log*
 # personal job data backup (do not commit)
 data.json
 
+# generated company -> ATS platform mapping cache (regenerate via Watchlist "Re-detect")
+company-ats-cache.json
+
 # personal CV and cover letter (do not commit)
 CV.md
 CV.tex
