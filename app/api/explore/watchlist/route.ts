@@ -1,7 +1,7 @@
 import { parseCompanyList, type WatchlistCompany } from '../../../_lib/companyList'
 import { fetchArbeitnow, fetchLinkedIn, type JobPosting } from '../../../_lib/jobSearch'
 import { resolveCompanyAts } from '../../../_lib/atsCache'
-import { fetchAtsJobs, type AtsMapping } from '../../../_lib/atsClients'
+import { fetchAtsJobs, type AtsMapping } from '../../../_lib/providers'
 
 export interface WatchlistResult extends JobPosting {
   tier: string
