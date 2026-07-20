@@ -62,6 +62,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
 
   const [keywords, setKeywords] = useState<string[]>(DEFAULT_KEYWORDS)
   const [keywordInput, setKeywordInput] = useState('')
+  const [minDate, setMinDate] = useState('')
 
   const [results, setResults] = useState<WatchlistResult[]>([])
   const [companiesChecked, setCompaniesChecked] = useState(0)
@@ -146,7 +147,11 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
     setSavedIds((prev) => new Set([...prev, result.id]))
   }
 
-  const grouped = groupResults(results)
+  const visibleResults = minDate
+    ? results.filter((r) => new Date(r.postedAt) >= new Date(`${minDate}T00:00:00`))
+    : results
+
+  const grouped = groupResults(visibleResults)
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -181,6 +186,24 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
           <p className="mt-1 text-[10px] text-zinc-400">Press Enter to add</p>
         </div>
 
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Published after</p>
+          <input
+            type="date"
+            value={minDate}
+            onChange={(e) => setMinDate(e.target.value)}
+            className="w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+          />
+          {minDate && (
+            <button
+              onClick={() => setMinDate('')}
+              className="mt-1 text-[10px] text-zinc-400 underline decoration-dotted hover:text-zinc-600"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
         <p className="text-[10px] text-zinc-400">
           Searches every company in your <code className="rounded bg-zinc-100 px-1">companylist.md</code> Master Tracker for these titles — direct from each company&apos;s job board where one is known, otherwise via aggregator search.
         </p>
@@ -208,7 +231,8 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
 
         {searched && !loading && !error && (
           <p className="mb-3 text-xs text-zinc-500">
-            Checked {companiesChecked} companies ({companiesWithDirectAts} via direct job board) · {results.length} new role{results.length !== 1 ? 's' : ''} found
+            Checked {companiesChecked} companies ({companiesWithDirectAts} via direct job board) · {visibleResults.length} new role{visibleResults.length !== 1 ? 's' : ''} found
+            {minDate && results.length !== visibleResults.length && ` (${results.length} before date filter)`}
           </p>
         )}
 
@@ -231,13 +255,20 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
           </div>
         )}
 
+        {searched && !loading && !error && results.length > 0 && visibleResults.length === 0 && (
+          <div className="flex flex-col items-center justify-center pt-24 text-center">
+            <p className="text-sm font-medium text-zinc-500">No roles published after {minDate}</p>
+            <p className="mt-1 text-xs text-zinc-400">{results.length} role{results.length !== 1 ? 's' : ''} found overall — try an earlier date</p>
+          </div>
+        )}
+
         {!searched && (
           <div className="flex flex-col items-center justify-center pt-24 text-center">
             <p className="text-sm text-zinc-400">Click Refresh to check your whole company list</p>
           </div>
         )}
 
-        {(results.length > 0 || noDirectCoverage.length > 0) && (
+        {(visibleResults.length > 0 || noDirectCoverage.length > 0) && (
           <div className="flex flex-col gap-4">
             {PRIORITY_GROUPS.map(({ key, label }) => {
               const group = grouped[key]
