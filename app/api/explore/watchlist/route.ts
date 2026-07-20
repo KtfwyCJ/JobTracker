@@ -91,7 +91,8 @@ export async function POST(request: Request) {
 
       if (mapping) {
         const atsJobs = await fetchAtsJobs(mapping, company.name)
-        return attachMeta(dedupe(atsJobs.filter((j) => titleMatches(j, keywordPatterns))), company)
+        const results = attachMeta(dedupe(atsJobs.filter((j) => titleMatches(j, keywordPatterns))), company)
+        return { company, results, hasDirectAts: true }
       }
 
       const linkedInJobs = await fetchLinkedIn(keywords, company.city)
@@ -102,13 +103,27 @@ export async function POST(request: Request) {
         ...titleMatchedLinkedIn.filter((j) => matchesCompany(j, company)),
       ])
 
-      return attachMeta(combined, company)
+      return { company, results: attachMeta(combined, company), hasDirectAts: false }
     })
 
+    // Companies with no direct ATS AND nothing found via the aggregator are ambiguous —
+    // it could mean there's truly nothing open, or just that we have no real visibility
+    // into that company's listings. Surface them separately instead of silently omitting.
+    const noDirectCoverage = perCompany
+      .filter((c) => !c.hasDirectAts && c.results.length === 0)
+      .map(({ company }) => ({
+        name: company.name,
+        tier: company.tier,
+        priority: company.priority,
+        category: company.category,
+        careerPortalUrl: company.careerPortalUrl,
+      }))
+
     return Response.json({
-      results: perCompany.flat(),
+      results: perCompany.flatMap((c) => c.results),
       companiesChecked: companies.length,
       companiesWithDirectAts: companies.length - fallbackCompanies.length,
+      noDirectCoverage,
       keywordsUsed: keywords,
     })
   } catch (err) {

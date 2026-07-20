@@ -22,6 +22,14 @@ interface WatchlistResult {
   companyCity: string
 }
 
+interface NoCoverageCompany {
+  name: string
+  tier: string
+  priority: string | null
+  category: string
+  careerPortalUrl: string | null
+}
+
 const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Backend Engineer']
 
 const PRIORITY_GROUPS: { key: string; label: string }[] = [
@@ -58,6 +66,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
   const [results, setResults] = useState<WatchlistResult[]>([])
   const [companiesChecked, setCompaniesChecked] = useState(0)
   const [companiesWithDirectAts, setCompaniesWithDirectAts] = useState(0)
+  const [noDirectCoverage, setNoDirectCoverage] = useState<NoCoverageCompany[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
@@ -124,6 +133,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
       setResults(json.results.filter((r: WatchlistResult) => !alreadyTracked(r)))
       setCompaniesChecked(json.companiesChecked)
       setCompaniesWithDirectAts(json.companiesWithDirectAts ?? 0)
+      setNoDirectCoverage(json.noDirectCoverage ?? [])
     } catch {
       setError('Network error — please try again')
     } finally {
@@ -227,7 +237,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
           </div>
         )}
 
-        {results.length > 0 && (
+        {(results.length > 0 || noDirectCoverage.length > 0) && (
           <div className="flex flex-col gap-4">
             {PRIORITY_GROUPS.map(({ key, label }) => {
               const group = grouped[key]
@@ -252,6 +262,39 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
                 </details>
               )
             })}
+
+            {noDirectCoverage.length > 0 && (
+              <details className="group">
+                <summary className="mb-2 cursor-pointer text-xs font-bold uppercase tracking-widest text-zinc-400">
+                  No direct visibility ({noDirectCoverage.length})
+                </summary>
+                <p className="mb-2 text-[11px] text-zinc-400">
+                  No known job board detected and nothing matched via aggregator search — this doesn&apos;t mean these companies have no open roles, just that we couldn&apos;t check reliably. Worth a manual look.
+                </p>
+                <div className="flex flex-col gap-1">
+                  {[...noDirectCoverage]
+                    .sort((a, b) => (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99))
+                    .map((c) => (
+                      <div key={c.name} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium text-zinc-700">{c.name}</span>
+                          <span className="text-[10px] text-zinc-400">{c.tier}{c.priority ? ` · ${c.priority}` : ''}</span>
+                        </span>
+                        {c.careerPortalUrl && (
+                          <a
+                            href={c.careerPortalUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900"
+                          >
+                            Career Portal ↗
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </details>
+            )}
           </div>
         )}
       </main>
