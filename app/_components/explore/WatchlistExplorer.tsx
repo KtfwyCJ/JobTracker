@@ -41,6 +41,23 @@ const PRIORITY_GROUPS: { key: string; label: string }[] = [
 
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2 }
 
+const COUNTRY_PATTERNS: Record<string, RegExp> = {
+  germany: /germany|deutschland|\bde\b/,
+}
+
+function locationMatchesCountry(location: string, country: string): boolean {
+  const c = country.trim().toLowerCase()
+  if (!c) return true
+  const loc = location.toLowerCase()
+  const pattern = COUNTRY_PATTERNS[c]
+  return pattern ? pattern.test(loc) : loc.includes(c)
+}
+
+function locationMatchesCity(location: string, city: string): boolean {
+  const c = city.trim().toLowerCase()
+  return !c || location.toLowerCase().includes(c)
+}
+
 function groupResults(results: WatchlistResult[]): Record<string, WatchlistResult[]> {
   const buckets: Record<string, WatchlistResult[]> = { P1: [], P2: [], P3: [], other: [] }
   for (const r of results) {
@@ -63,6 +80,8 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
   const [keywords, setKeywords] = useState<string[]>(DEFAULT_KEYWORDS)
   const [keywordInput, setKeywordInput] = useState('')
   const [minDate, setMinDate] = useState('')
+  const [country, setCountry] = useState('Germany')
+  const [city, setCity] = useState('')
 
   const [results, setResults] = useState<WatchlistResult[]>([])
   const [companiesChecked, setCompaniesChecked] = useState(0)
@@ -147,9 +166,14 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
     setSavedIds((prev) => new Set([...prev, result.id]))
   }
 
-  const visibleResults = minDate
-    ? results.filter((r) => new Date(r.postedAt) >= new Date(`${minDate}T00:00:00`))
-    : results
+  const visibleResults = results.filter((r) => {
+    if (minDate && new Date(r.postedAt) < new Date(`${minDate}T00:00:00`)) return false
+    if (!locationMatchesCountry(r.location, country)) return false
+    if (!locationMatchesCity(r.location, city)) return false
+    return true
+  })
+
+  const filtersActive = Boolean(minDate || country.trim() || city.trim())
 
   const grouped = groupResults(visibleResults)
 
@@ -204,6 +228,28 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
           )}
         </div>
 
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Country</p>
+          <input
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            placeholder="e.g. Germany"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+          />
+        </div>
+
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+            City <span className="text-[10px] font-normal normal-case tracking-normal text-zinc-300">optional</span>
+          </p>
+          <input
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="e.g. Berlin"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
+          />
+        </div>
+
         <p className="text-[10px] text-zinc-400">
           Searches every company in your <code className="rounded bg-zinc-100 px-1">companylist.md</code> Master Tracker for these titles — direct from each company&apos;s job board where one is known, otherwise via aggregator search.
         </p>
@@ -232,7 +278,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
         {searched && !loading && !error && (
           <p className="mb-3 text-xs text-zinc-500">
             Checked {companiesChecked} companies ({companiesWithDirectAts} via direct job board) · {visibleResults.length} new role{visibleResults.length !== 1 ? 's' : ''} found
-            {minDate && results.length !== visibleResults.length && ` (${results.length} before date filter)`}
+            {filtersActive && results.length !== visibleResults.length && ` (${results.length} before filters)`}
           </p>
         )}
 
@@ -257,8 +303,8 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
 
         {searched && !loading && !error && results.length > 0 && visibleResults.length === 0 && (
           <div className="flex flex-col items-center justify-center pt-24 text-center">
-            <p className="text-sm font-medium text-zinc-500">No roles published after {minDate}</p>
-            <p className="mt-1 text-xs text-zinc-400">{results.length} role{results.length !== 1 ? 's' : ''} found overall — try an earlier date</p>
+            <p className="text-sm font-medium text-zinc-500">No roles match your filters</p>
+            <p className="mt-1 text-xs text-zinc-400">{results.length} role{results.length !== 1 ? 's' : ''} found overall — try loosening the date, country, or city</p>
           </div>
         )}
 
