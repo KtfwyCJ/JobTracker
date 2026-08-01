@@ -18,7 +18,8 @@ const GERMAN_REQUIREMENT_OPTIONS = Array.from(new Set(COMPANY_DIRECTORY.map((c) 
 const PRIORITY_OPTIONS = Array.from(new Set(COMPANY_DIRECTORY.map((c) => c.myPriority))).sort()
 
 function LinkCell({ href }: { href: string | null }) {
-  if (!href) return <span className="text-zinc-300">—</span>
+  const valid = href && /^https?:\/\/[^/]/.test(href)
+  if (!valid) return <span className="text-zinc-300">—</span>
   return (
     <a href={href} target="_blank" rel="noreferrer" className="font-semibold text-zinc-500 hover:text-zinc-900">
       ↗
@@ -223,7 +224,7 @@ export default function CompanyDirectory() {
               </thead>
               <tbody>
                 {filtered.map((row, i) => (
-                  <tr key={`${row.company}-${i}`} className="odd:bg-white even:bg-zinc-50/50 hover:bg-zinc-100">
+                  <tr key={`${row.company}-${i}`} className="odd:bg-white even:bg-zinc-50 hover:bg-zinc-100">
                     <td className="sticky left-0 z-10 whitespace-nowrap border-r border-zinc-200 bg-inherit px-3 py-2 font-semibold text-zinc-900">
                       {row.company}
                     </td>
