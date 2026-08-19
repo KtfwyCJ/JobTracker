@@ -18,6 +18,7 @@ interface Step {
 
 interface ExtractResult { text: string; wordCount: number }
 interface StructureResult { title?: string; company?: string; level?: string; location?: string; skills?: string[]; requirements?: string[]; niceToHave?: string[] }
+interface TailorResult { tex: string; filename: string; summary: string; keywordsAdded: string[]; missingRequirements: string[] }
 interface MatchResult { strengths?: string[]; gaps?: string[]; summary?: string }
 interface GapsResult { hardGaps?: string[]; softGaps?: string[]; score?: number; verdict?: string }
 interface CoverLetterResult { coverLetter: string }
@@ -27,6 +28,7 @@ interface SuggestionsResult { suggestions: Suggestion[] }
 const INITIAL_STEPS: Step[] = [
   { id: 'extract', label: 'JD Extractor', status: 'idle', preview: '', error: '' },
   { id: 'structure', label: 'JD Structurer', status: 'idle', preview: '', error: '' },
+  { id: 'tailorCv', label: 'CV Optimizer', status: 'idle', preview: '', error: '' },
   { id: 'match', label: 'CV Matcher', status: 'idle', preview: '', error: '' },
   { id: 'gaps', label: 'Gap Analyzer', status: 'idle', preview: '', error: '' },
   { id: 'coverLetter', label: 'Cover Letter Generator', status: 'idle', preview: '', error: '' },
@@ -93,6 +95,7 @@ export default function AnalyzePage() {
   const [downloading, setDownloading] = useState(false)
   const [retryFromIndex, setRetryFromIndex] = useState<number | null>(null)
   const [showAppliedModal, setShowAppliedModal] = useState(false)
+  const [cvSnapshot, setCvSnapshot] = useState('')
   const [suggestionsResult, setSuggestionsResult] = useState<Suggestion[] | null>(null)
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState('')
@@ -102,7 +105,10 @@ export default function AnalyzePage() {
   // Stored intermediate results for retry
   const [extractRes, setExtractRes] = useState<ExtractResult | null>(null)
   const [structureRes, setStructureRes] = useState<StructureResult | null>(null)
+  const [tailorRes, setTailorRes] = useState<TailorResult | null>(null)
   const [matchRes, setMatchRes] = useState<MatchResult | null>(null)
+  const [showTailoredCv, setShowTailoredCv] = useState(false)
+  const [tailoredCvCopied, setTailoredCvCopied] = useState(false)
 
   function updateStep(id: string, patch: Partial<Step>) {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
@@ -146,16 +152,19 @@ export default function AnalyzePage() {
       setCoverLetter('')
       setExtractRes(null)
       setStructureRes(null)
+      setTailorRes(null)
       setMatchRes(null)
+      setShowTailoredCv(false)
     }
-    if (startFrom <= 3) {
+    if (startFrom <= 4) {
       setSuggestionsResult(null)
       setSuggestionsError('')
     }
 
     let extract = startFrom === 0 ? null : extractRes
     let structure = startFrom <= 1 ? null : structureRes
-    let match = startFrom <= 2 ? null : matchRes
+    let tailor = startFrom <= 2 ? null : tailorRes
+    let match = startFrom <= 3 ? null : matchRes
 
     // Stage 1: Extract
     if (startFrom <= 0) {
@@ -177,31 +186,39 @@ export default function AnalyzePage() {
       updateStep('structure', { status: 'done', preview })
     }
 
-    // Stage 3: CV Match
+    // Stage 3: CV Optimizer — tailor the LaTeX CV to this specific job before analyzing
     if (startFrom <= 2) {
-      match = await callStage<MatchResult>('match', '/api/cv/match', { jd: structure })
-      if (!match) { setRunning(false); setRetryFromIndex(2); return }
+      tailor = await callStage<TailorResult>('tailorCv', '/api/cv/tailor', { jd: structure, jobText: extract?.text })
+      if (!tailor) { setRunning(false); setRetryFromIndex(2); return }
+      setTailorRes(tailor)
+      updateStep('tailorCv', { status: 'done', preview: `Tailored → ${tailor.filename}` })
+    }
+
+    // Stage 4: CV Match (against the newly tailored CV)
+    if (startFrom <= 3) {
+      match = await callStage<MatchResult>('match', '/api/cv/match', { jd: structure, cv: tailor?.tex })
+      if (!match) { setRunning(false); setRetryFromIndex(3); return }
       setMatchRes(match)
       const preview = (match.strengths ?? []).slice(0, 2).join(', ')
       updateStep('match', { status: 'done', preview: preview || (match.summary ?? '') })
     }
 
-    // Stage 4: Gap Analysis
+    // Stage 5: Gap Analysis
     const gaps = await callStage<GapsResult>('gaps', '/api/cv/gaps', { jd: structure, match })
-    if (!gaps) { setRunning(false); setRetryFromIndex(3); return }
+    if (!gaps) { setRunning(false); setRetryFromIndex(4); return }
     setGapsResult(gaps)
     updateStep('gaps', {
       status: 'done',
       preview: `Score ${gaps.score}/10 · ${gaps.verdict ?? ''}`,
     })
 
-    // Stage 5: Cover Letter
+    // Stage 6: Cover Letter
     const clResult = await callStage<CoverLetterResult>(
       'coverLetter',
       '/api/cover-letter/generate',
       { jd: structure, match, gaps },
     )
-    if (!clResult) { setRunning(false); setRetryFromIndex(4); return }
+    if (!clResult) { setRunning(false); setRetryFromIndex(5); return }
     setCoverLetter(clResult.coverLetter)
     updateStep('coverLetter', {
       status: 'done',
@@ -219,6 +236,8 @@ export default function AnalyzePage() {
     setRetryFromIndex(null)
     setExtractRes(null)
     setStructureRes(null)
+    setTailorRes(null)
+    setShowTailoredCv(false)
     setMatchRes(null)
     setSuggestionsResult(null)
     setSuggestionsError('')
@@ -247,10 +266,33 @@ export default function AnalyzePage() {
     return lines.join('\n')
   }
 
+  async function handleMarkAsApplied() {
+    if (tailorRes?.tex) {
+      setCvSnapshot(tailorRes.tex)
+      setShowAppliedModal(true)
+      return
+    }
+    try {
+      const res = await fetch('/api/cv/current')
+      const data = await res.json()
+      setCvSnapshot(res.ok ? data.cv : '')
+    } catch {
+      setCvSnapshot('')
+    }
+    setShowAppliedModal(true)
+  }
+
   function handleCopy() {
     navigator.clipboard.writeText(coverLetter)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleCopyTailoredCv() {
+    if (!tailorRes?.tex) return
+    navigator.clipboard.writeText(tailorRes.tex)
+    setTailoredCvCopied(true)
+    setTimeout(() => setTailoredCvCopied(false), 2000)
   }
 
   async function handleGetSuggestions() {
@@ -262,7 +304,7 @@ export default function AnalyzePage() {
       const res = await fetch('/api/cv/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jd: structureRes, gaps: gapsResult }),
+        body: JSON.stringify({ jd: structureRes, gaps: gapsResult, cv: tailorRes?.tex }),
       })
       const data: SuggestionsResult & { error?: string } = await res.json()
       if (!res.ok || data.error) {
@@ -396,6 +438,56 @@ export default function AnalyzePage() {
             </div>
           )}
 
+          {/* Tailored CV */}
+          {tailorRes && (
+            <div className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-zinc-700">CV tailored for this role</p>
+                <span className="truncate font-mono text-[11px] text-zinc-400">{tailorRes.filename}</span>
+              </div>
+              {tailorRes.summary && (
+                <p className="mt-1.5 text-xs leading-relaxed text-zinc-600">{tailorRes.summary}</p>
+              )}
+              {tailorRes.keywordsAdded.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {tailorRes.keywordsAdded.map((k, i) => (
+                    <span key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {tailorRes.missingRequirements.length > 0 && (
+                <p className="mt-2 text-xs text-amber-600">
+                  Not addressed (no supporting evidence in CV): {tailorRes.missingRequirements.join(', ')}
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setShowTailoredCv((v) => !v)}
+                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
+                >
+                  {showTailoredCv ? 'Hide .tex' : 'View .tex'}
+                </button>
+                <button
+                  onClick={handleCopyTailoredCv}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    tailoredCvCopied
+                      ? 'bg-green-500 text-white'
+                      : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                  }`}
+                >
+                  {tailoredCvCopied ? 'Copied!' : 'Copy .tex'}
+                </button>
+              </div>
+              {showTailoredCv && (
+                <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-100 bg-zinc-50 p-3 font-mono text-[11px] leading-relaxed text-zinc-600">
+                  {tailorRes.tex}
+                </pre>
+              )}
+            </div>
+          )}
+
           {/* Score card */}
           {gapsResult?.score !== undefined && (
             <div className="mt-6">
@@ -479,7 +571,7 @@ export default function AnalyzePage() {
           {structureRes && !running && (
             <div className="mt-4">
               <button
-                onClick={() => setShowAppliedModal(true)}
+                onClick={handleMarkAsApplied}
                 className="w-full rounded-xl border-2 border-dashed border-zinc-300 py-3 text-sm font-semibold text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
               >
                 Mark as Applied
@@ -547,10 +639,12 @@ export default function AnalyzePage() {
           prefill={{
             companyName: structureRes?.company,
             title: structureRes?.title,
+            description: extractRes?.text,
             location: structureRes?.location,
             jobLink: url,
             matchLevel: gapsResult?.score !== undefined ? Math.max(1, Math.round(gapsResult.score / 2)) : undefined,
             analysis: buildAnalysisText() || undefined,
+            cvSnapshot: cvSnapshot || undefined,
           }}
         />
       )}

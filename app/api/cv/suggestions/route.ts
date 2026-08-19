@@ -6,9 +6,10 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: Request) {
   try {
-    const { jd, gaps } = await request.json() as {
+    const { jd, gaps, cv: tailoredCv } = await request.json() as {
       jd: object
       gaps: { hardGaps?: string[]; softGaps?: string[] }
+      cv?: string
     }
 
     if (!jd || !gaps) {
@@ -16,13 +17,17 @@ export async function POST(request: Request) {
     }
 
     let cv: string
-    try {
-      cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
-    } catch {
-      return Response.json(
-        { error: 'CV.md not found in project root. Please add your CV as CV.md.' },
-        { status: 500 },
-      )
+    if (tailoredCv) {
+      cv = tailoredCv
+    } else {
+      try {
+        cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
+      } catch {
+        return Response.json(
+          { error: 'CV.md not found in project root. Please add your CV as CV.md.' },
+          { status: 500 },
+        )
+      }
     }
 
     const allGaps = [...(gaps.hardGaps ?? []), ...(gaps.softGaps ?? [])]
@@ -54,7 +59,7 @@ JOB DESCRIPTION:
 ${JSON.stringify(jd, null, 2)}
 
 CANDIDATE CV:
-${cv.slice(0, 6000)}`,
+${cv.slice(0, 9000)}`,
       }],
     })
 

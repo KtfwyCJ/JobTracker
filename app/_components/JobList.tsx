@@ -65,7 +65,11 @@ export default function JobList() {
 
   const filteredCompanies = data.companies
     .filter((c) => data.jobs.some((j) => j.companyId === c.id && jobMatchesFilters(j, c.name)))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      const latestA = data.jobs.filter((j) => j.companyId === a.id).reduce((m, j) => j.createdAt > m ? j.createdAt : m, '')
+      const latestB = data.jobs.filter((j) => j.companyId === b.id).reduce((m, j) => j.createdAt > m ? j.createdAt : m, '')
+      return latestB.localeCompare(latestA)
+    })
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-200 bg-white">

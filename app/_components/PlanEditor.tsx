@@ -31,6 +31,21 @@ export default function PlanEditor({ planId, content, contentRef }: Props) {
     setMode('read')
   }
 
+  function handleCheckboxToggle(index: number) {
+    let count = 0
+    const newContent = content.replace(/- \[[ xX]\]/g, (match) => {
+      if (count++ === index) {
+        return match[3] === ' ' ? '- [x]' : '- [ ]'
+      }
+      return match
+    })
+    setDraft(newContent)
+    draftRef.current = newContent
+    const titleMatch = newContent.match(/^#\s+(.+)$/m)
+    const title = titleMatch ? titleMatch[1].trim() : 'Untitled Plan'
+    updatePlan(planId, { content: newContent, title })
+  }
+
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
       <div className="absolute right-4 top-4 z-10 flex gap-2">
@@ -71,9 +86,31 @@ export default function PlanEditor({ planId, content, contentRef }: Props) {
         <div ref={contentRef} className="flex-1 overflow-y-auto p-6 pt-12">
           {content.trim() ? (
             <div className="prose prose-sm max-w-none prose-headings:text-zinc-900 prose-h1:text-xl prose-h2:text-base prose-h3:text-sm prose-p:text-zinc-700 prose-li:text-zinc-700 prose-a:text-blue-500 prose-strong:text-zinc-900 prose-hr:border-zinc-200 prose-blockquote:border-zinc-300 prose-blockquote:text-zinc-500">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSlug]}>
-                {content}
-              </ReactMarkdown>
+              {(() => {
+                let cbIndex = 0
+                return (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSlug]}
+                    components={{
+                      input({ type, checked }) {
+                        if (type !== 'checkbox') return <input type={type} />
+                        const idx = cbIndex++
+                        return (
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleCheckboxToggle(idx)}
+                            className="cursor-pointer"
+                          />
+                        )
+                      },
+                    }}
+                  >
+                    {content}
+                  </ReactMarkdown>
+                )
+              })()}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center">

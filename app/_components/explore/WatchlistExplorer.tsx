@@ -30,7 +30,7 @@ interface NoCoverageCompany {
   careerPortalUrl: string | null
 }
 
-const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Backend Engineer']
+const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Frontend Engineer', 'Frontend', 'Front End', 'Front-end', 'AI Application Developer', 'AI Developer', 'Machine Learning Engineer', 'ML Engineer', 'Fullstack Engineer', 'Full Stack Engineer', 'Full-stack Engineer', 'Fullstack Developer']
 
 const PRIORITY_GROUPS: { key: string; label: string }[] = [
   { key: 'P1', label: 'P1 — Dream tier' },

@@ -3045,7 +3045,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.think-cell.com/en/career",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3070,7 +3070,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://staffbase.com/jobs/all/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3095,7 +3095,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.misterspex.de/karriere",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3120,7 +3120,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.clark.de/de/karriere",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3145,7 +3145,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.getsafe.com/career/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3170,7 +3170,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.solarisgroup.com/en/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3195,7 +3195,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.enpal.com/career/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3220,7 +3220,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://1komma5.com/en/about-us/jobs/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3245,7 +3245,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://octopusenergy.de/karriere/offene-stellen",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3270,7 +3270,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.tanium.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3295,7 +3295,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.crowdstrike.com/de-de/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3320,7 +3320,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://jobs.paloaltonetworks.com/de",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3345,7 +3345,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://jobs.cisco.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3370,7 +3370,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://jobs.dell.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3395,7 +3395,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.broadcom.com/company/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3420,7 +3420,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.servicenow.com/company/careers.html",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3445,7 +3445,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.atlassian.com/company/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3470,7 +3470,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.okta.com/company/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3495,7 +3495,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://snyk.io/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3520,7 +3520,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://neo4j.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3545,7 +3545,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://grafanalabs.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3570,7 +3570,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://vercel.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3595,7 +3595,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.netlify.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3620,7 +3620,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://planetscale.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3645,7 +3645,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://supabase.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3670,7 +3670,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.postman.com/company/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3695,7 +3695,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://retool.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3720,7 +3720,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://linear.app/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3745,7 +3745,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Remote",
-    "careerUrl": "https://",
+    "careerUrl": "https://www.anthropic.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3770,7 +3770,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Greenhouse",
     "remoteHybrid": "Hybrid",
-    "careerUrl": "https://",
+    "careerUrl": "https://openai.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3795,7 +3795,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.arago.co/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3820,7 +3820,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.anybotics.com/about-us/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3845,7 +3845,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://auterion.com/company/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3870,7 +3870,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.hawk.ai/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3895,7 +3895,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://konux.com/careers-page/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3920,7 +3920,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://proglove.com/de/karriere/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3945,7 +3945,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.relayr.io/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3970,7 +3970,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.twaice.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -3995,7 +3995,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://lilium.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4020,7 +4020,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://quantum-systems.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4045,7 +4045,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.navvis.com/company/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4070,7 +4070,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://orbem.ai/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4095,7 +4095,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://planet-a-foods.com/en/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4120,7 +4120,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://marvelfusion.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4145,7 +4145,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://motional.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4170,7 +4170,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.mobileye.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4195,7 +4195,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.here.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4220,7 +4220,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.tomtom.com/careers/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4245,7 +4245,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.sick.com/germany/",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4270,7 +4270,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.ifm.com/de/en/company/careers",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4295,7 +4295,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.festo.com/",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4320,7 +4320,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.balluff.com/de-de/ihre-karriere-bei-balluff",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4345,7 +4345,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.pilz.com/de-DE/company/careers",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4370,7 +4370,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.boschrexroth.com/en/dc/jobs-and-career/",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4395,7 +4395,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.turck.com/de/en/company/careers",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4420,7 +4420,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "No",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.harting.com/de-DE/karriere",
     "linkedInJobs": null,
     "myPriority": "A+",
     "notes": null
@@ -4445,7 +4445,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.liebherr.com/de-de/karriere/karriere-3364204",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4470,7 +4470,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://recruiting.dmgmori.com/Jobs/All?lang=eng",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4495,7 +4495,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.voith.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4520,7 +4520,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.wieland.com/en/jobs",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4545,7 +4545,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.freudenberg.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4570,7 +4570,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.harman.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4595,7 +4595,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.etas.com/ww/en/about-etas/careers-at-etas/careers/overview/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4620,7 +4620,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.avl.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4645,7 +4645,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.nxp.com/company/about-nxp/careers:CAREERS",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4670,7 +4670,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.qualcomm.com/company/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4695,7 +4695,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.intel.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4720,7 +4720,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.amd.com/en/corporate/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4745,7 +4745,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://careers.arm.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4770,7 +4770,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://careers.synopsys.com/location/germany-jobs/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4795,7 +4795,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.cadence.com/en_US/home/company/careers.html",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4820,7 +4820,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://de.mathworks.com/company/jobs/opportunities/search",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4845,7 +4845,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.ansys.com/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4870,7 +4870,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://jobs.keysight.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4895,7 +4895,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://de.mathworks.com/company/jobs/opportunities/search",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4920,7 +4920,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.esri.com/de-de/about/careers/overview",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4945,7 +4945,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://careers.infor.com/",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4970,7 +4970,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.epicgames.com/site/en-US/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -4995,7 +4995,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://unity.com/careers/positions",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null
@@ -5020,7 +5020,7 @@ export const COMPANY_DIRECTORY: CompanyDirectoryEntry[] = [
     "equityRsu": "Yes",
     "ats": "Workday",
     "remoteHybrid": "Hybrid",
-    "careerUrl": null,
+    "careerUrl": "https://www.ubisoft.com/en-us/company/careers",
     "linkedInJobs": null,
     "myPriority": "S",
     "notes": null

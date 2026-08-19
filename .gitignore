@@ -43,6 +43,7 @@ company-ats-cache.json
 CV.md
 CV.tex
 CoverLetterTemplate.md
+generated-cvs/
 
 # local Claude Code settings (machine-specific paths)
 .claude/

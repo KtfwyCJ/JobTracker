@@ -26,6 +26,7 @@ import type {
   PrepQuestion,
   PrepSource,
   QuestionKind,
+  TechnicalQuestion,
   TimelineEvent,
   WaitlistEntry,
 } from './types'
@@ -33,7 +34,7 @@ import { loadData, saveData } from './storage'
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string }
+type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string }
 
 type Action =
   | { type: 'LOAD'; payload: AppData }
@@ -54,6 +55,7 @@ type Action =
   | { type: 'UPDATE_WAITLIST_MATCH'; payload: { id: string; matchLevel: number } }
   | { type: 'PROMOTE_WAITLIST_ENTRY'; payload: { id: string } }
   | { type: 'UPDATE_REJECTION_EMAIL'; payload: { jobId: string; rejectionEmail: string } }
+  | { type: 'UPDATE_TECHNICAL_QUESTIONS'; payload: { jobId: string; interviewerLinkedIn: string; technicalQuestions: TechnicalQuestion[] } }
   | { type: 'ADD_LEARNING_RESOURCE'; payload: Omit<LearningResource, 'id' | 'createdAt' | 'updatedAt'> }
   | { type: 'UPDATE_LEARNING_RESOURCE'; payload: { id: string } & Partial<Omit<LearningResource, 'id' | 'createdAt'>> }
   | { type: 'DELETE_LEARNING_RESOURCE'; payload: { id: string } }
@@ -96,7 +98,7 @@ function reducer(state: AppData, action: Action): AppData {
       }
 
     case 'ADD_JOB': {
-      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis } = action.payload
+      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -122,6 +124,7 @@ function reducer(state: AppData, action: Action): AppData {
         jobLink,
         matchLevel,
         analysis,
+        cvSnapshot,
       }
 
       const initialEvent: TimelineEvent = {
@@ -142,7 +145,7 @@ function reducer(state: AppData, action: Action): AppData {
     }
 
     case 'UPDATE_JOB': {
-      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis } = action.payload
+      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -159,7 +162,7 @@ function reducer(state: AppData, action: Action): AppData {
         companies,
         jobs: state.jobs.map((j) =>
           j.id === jobId
-            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis }
+            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot }
             : j
         ),
       }
@@ -307,6 +310,21 @@ function reducer(state: AppData, action: Action): AppData {
       return {
         ...state,
         jobs: state.jobs.map((j) => (j.id === jobId ? { ...j, rejectionEmail } : j)),
+      }
+    }
+
+    case 'UPDATE_TECHNICAL_QUESTIONS': {
+      const { jobId, interviewerLinkedIn, technicalQuestions } = action.payload
+      const normalized = technicalQuestions.map((q) =>
+        typeof q === 'string'
+          ? { question: q as string, likelihood: 'medium' as const }
+          : q
+      )
+      return {
+        ...state,
+        jobs: state.jobs.map((j) =>
+          j.id === jobId ? { ...j, interviewerLinkedIn, technicalQuestions: normalized } : j
+        ),
       }
     }
 
@@ -664,6 +682,7 @@ interface StoreContextValue {
   updateWaitlistMatch: (id: string, matchLevel: number) => void
   promoteWaitlistEntry: (id: string) => void
   updateRejectionEmail: (jobId: string, rejectionEmail: string) => void
+  updateTechnicalQuestions: (jobId: string, interviewerLinkedIn: string, technicalQuestions: TechnicalQuestion[]) => void
   addLearningResource: (payload: Omit<LearningResource, 'id' | 'createdAt' | 'updatedAt'>) => void
   updateLearningResource: (id: string, patch: Partial<Omit<LearningResource, 'id' | 'createdAt'>>) => void
   deleteLearningResource: (id: string) => void
@@ -796,6 +815,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   function updateRejectionEmail(jobId: string, rejectionEmail: string) {
     dispatch({ type: 'UPDATE_REJECTION_EMAIL', payload: { jobId, rejectionEmail } })
+  }
+
+  function updateTechnicalQuestions(jobId: string, interviewerLinkedIn: string, technicalQuestions: TechnicalQuestion[]) {
+    dispatch({ type: 'UPDATE_TECHNICAL_QUESTIONS', payload: { jobId, interviewerLinkedIn, technicalQuestions } })
   }
 
   function updateJobStatus(jobId: string, status: JobStatus, note?: string) {
@@ -1016,6 +1039,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateWaitlistMatch,
         promoteWaitlistEntry,
         updateRejectionEmail,
+        updateTechnicalQuestions,
         addLearningResource,
         updateLearningResource,
         deleteLearningResource,

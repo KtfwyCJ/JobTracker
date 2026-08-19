@@ -68,6 +68,15 @@ export interface Job {
   matchLevel?: number   // 1–5; undefined = unrated
   analysis?: string
   rejectionEmail?: string
+  interviewerLinkedIn?: string
+  technicalQuestions?: TechnicalQuestion[]
+  cvSnapshot?: string
+}
+
+export interface TechnicalQuestion {
+  question: string
+  likelihood: 'high' | 'medium' | 'low'
+  answer?: string
 }
 
 export interface WaitlistEntry {

@@ -8,22 +8,29 @@ import StarRating from './StarRating'
 import ChevronIcon from './ChevronIcon'
 import StatsPanel from './StatsPanel'
 import StatusInterviewModal from './StatusInterviewModal'
+import TechnicalQuestionsDrawer from './TechnicalQuestionsDrawer'
 
 export default function JobDetail() {
   const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, updateRejectionEmail, setEditingJobId, deleteJob, getCompany } = useStore()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [descOpen, setDescOpen] = useState(true)
   const [analysisOpen, setAnalysisOpen] = useState(true)
+  const [cvSnapshotOpen, setCvSnapshotOpen] = useState(true)
+  const [cvCopied, setCvCopied] = useState(false)
   const [rejectionEmailOpen, setRejectionEmailOpen] = useState(true)
   const [emailDraft, setEmailDraft] = useState('')
   const [emailSaved, setEmailSaved] = useState(false)
   const [pendingStatus, setPendingStatus] = useState<JobStatus | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [questionsOpen, setQuestionsOpen] = useState(true)
 
   useEffect(() => {
     setConfirmingDelete(false)
     setEmailDraft('')
     setEmailSaved(false)
     setRejectionEmailOpen(true)
+    setCvCopied(false)
+    setDrawerOpen(false)
   }, [selectedJobId])
 
   const job = selectedJobId ? data.jobs.find((j) => j.id === selectedJobId) : undefined
@@ -40,6 +47,7 @@ export default function JobDetail() {
   }
 
   return (
+    <div className="flex flex-1 overflow-hidden">
     <div className="flex flex-1 flex-col overflow-y-auto">
       {/* Header */}
       <div className="border-b border-zinc-200 bg-white px-6 pt-5 pb-4">
@@ -97,8 +105,18 @@ export default function JobDetail() {
             </div>
           </div>
 
-          {/* Edit / Delete — top-right */}
+          {/* Edit / Delete / Technical Questions — top-right */}
           <div className="flex shrink-0 items-center gap-1 pt-1">
+            <button
+              onClick={() => setDrawerOpen((o) => !o)}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                drawerOpen
+                  ? 'bg-zinc-900 text-white hover:bg-zinc-700'
+                  : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+              }`}
+            >
+              Technical Questions
+            </button>
             {confirmingDelete ? (
               <span className="flex items-center gap-1.5 text-xs text-zinc-500">
                 Delete?
@@ -211,6 +229,34 @@ export default function JobDetail() {
           </div>
         )}
 
+        {/* CV Snapshot */}
+        {job.cvSnapshot && (
+          <div>
+            <button
+              onClick={() => setCvSnapshotOpen((o) => !o)}
+              className="mb-2 flex w-full items-center gap-1.5 text-left"
+            >
+              <ChevronIcon open={cvSnapshotOpen} />
+              <h3 className="text-sm font-semibold text-zinc-700">CV Snapshot</h3>
+            </button>
+            {cvSnapshotOpen && (
+              <div className="ml-5 space-y-2">
+                <pre className="whitespace-pre-wrap border-l-2 border-zinc-300 bg-zinc-50 pl-3 py-2 font-mono text-xs leading-relaxed text-zinc-600">{job.cvSnapshot}</pre>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(job.cvSnapshot!)
+                    setCvCopied(true)
+                    setTimeout(() => setCvCopied(false), 2000)
+                  }}
+                  className="text-[11px] text-zinc-400 hover:text-zinc-700 transition-colors"
+                >
+                  {cvCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Rejection email — shown only when status is rejected */}
         {job.status === 'rejected' && (
           <div>
@@ -266,6 +312,32 @@ export default function JobDetail() {
           </div>
         )}
 
+        {/* Technical Questions — shown when saved */}
+        {job.technicalQuestions && job.technicalQuestions.length > 0 && (
+          <div>
+            <button
+              onClick={() => setQuestionsOpen((o) => !o)}
+              className="mb-2 flex w-full items-center gap-1.5 text-left"
+            >
+              <ChevronIcon open={questionsOpen} />
+              <h3 className="text-sm font-semibold text-zinc-700">Technical Questions</h3>
+              <span className="ml-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-400">
+                {job.technicalQuestions.length}
+              </span>
+            </button>
+            {questionsOpen && (
+              <ol className="ml-5 flex flex-col gap-2">
+                {job.technicalQuestions.map((q, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-zinc-600 leading-relaxed">
+                    <span className="shrink-0 font-medium text-zinc-400 tabular-nums w-5 text-right">{i + 1}.</span>
+                    <span>{q.question}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+
         <Timeline jobId={job.id} />
       </div>
 
@@ -276,6 +348,14 @@ export default function JobDetail() {
           onClose={() => setPendingStatus(null)}
         />
       )}
+    </div>
+
+    {drawerOpen && (
+      <TechnicalQuestionsDrawer
+        job={job}
+        onClose={() => setDrawerOpen(false)}
+      />
+    )}
     </div>
   )
 }

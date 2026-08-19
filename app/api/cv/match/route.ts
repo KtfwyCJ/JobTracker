@@ -6,16 +6,20 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(request: Request) {
   try {
-    const { jd } = await request.json() as { jd: object }
+    const { jd, cv: tailoredCv } = await request.json() as { jd: object; cv?: string }
     if (!jd) {
       return Response.json({ error: 'Structured JD is required' }, { status: 400 })
     }
 
     let cv: string
-    try {
-      cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
-    } catch {
-      return Response.json({ error: 'CV.md not found in project root. Please add your CV as CV.md.' }, { status: 500 })
+    if (tailoredCv) {
+      cv = tailoredCv
+    } else {
+      try {
+        cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
+      } catch {
+        return Response.json({ error: 'CV.md not found in project root. Please add your CV as CV.md.' }, { status: 500 })
+      }
     }
 
     const message = await client.messages.create({
@@ -39,7 +43,7 @@ JOB DESCRIPTION:
 ${JSON.stringify(jd, null, 2)}
 
 CV:
-${cv.slice(0, 6000)}`,
+${cv.slice(0, 9000)}`,
       }],
     })
 

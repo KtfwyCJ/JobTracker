@@ -52,16 +52,15 @@ Curated for an **AI Engineer / Software Engineer** profile — selected for AI i
 | 36 | Solaris | FinTech | A | | Berlin | [solarisgroup.com/careers](https://www.solarisgroup.com/careers) | 🔲 | |
 | 37 | Moss | FinTech | A | | Berlin | [getmoss.com/careers](https://getmoss.com/careers) | 🔲 | |
 | 38 | FINN | FinTech | A | P3 | Munich | [finn.com/careers](https://www.finn.com/careers) | 🔲 | |
-| 39 | Mambu | FinTech | A | | Berlin | [mambu.com/careers](https://mambu.com/company/careers) | 🔲 | |
 | 40 | Raisin | FinTech | A | | Berlin | [raisin.com/careers](https://www.raisin.com/careers/) | 🔲 | |
 | 41 | Pliant | FinTech | A | | Berlin | [getpliant.com/careers](https://www.getpliant.com/en/careers) | 🔲 | |
-| 42 | Siemens | Industrial AI | A | | Munich | [jobs.siemens.com](https://jobs.siemens.com/) | 🔲 | |
-| 43 | Siemens Healthineers | Industrial AI | A | | Erlangen / Munich | [jobs.siemens-healthineers.com](https://jobs.siemens-healthineers.com/) | 🔲 | |
-| 44 | Bosch | Industrial AI | A | | Stuttgart / Munich | [smartrecruiters: BoschGroup](https://careers.smartrecruiters.com/BoschGroup) | 🔲 | |
-| 45 | BMW | Industrial AI | A | | Munich | [bmwgroup.jobs](https://www.bmwgroup.jobs/) | 🔲 | |
-| 46 | Mercedes-Benz | Industrial AI | A | | Stuttgart | [group.mercedes-benz.com/careers](https://group.mercedes-benz.com/careers) | 🔲 | |
-| 47 | ZEISS | Industrial AI | A | | Oberkochen / Munich | [zeiss.com/careers](https://www.zeiss.com/careers) | 🔲 | |
-| 48 | TRUMPF | Industrial AI | A | | Ditzingen | [trumpf.com/careers](https://www.trumpf.com/en_INT/careers) | 🔲 | |
+| 42 | Siemens | Industrial AI | A | | Munich | [jobs.siemens.com](https://jobs.siemens.com/) | 🔲 | IG Metall ✅ · German ⭐⭐ (int'l teams, English OK) · AI/Software/Cloud/Digital Industries · Rec ⭐⭐⭐⭐⭐ |
+| 43 | Siemens Healthineers | Industrial AI | A | | Erlangen / Munich | [jobs.siemens-healthineers.com](https://jobs.siemens-healthineers.com/) | 🔲 | IG Metall ✅ · German ⭐ very low · AI/Medical AI/Cloud/Platform · Rec ⭐⭐⭐⭐⭐ |
+| 44 | Bosch | Industrial AI | A | | Stuttgart / Munich | [smartrecruiters: BoschGroup](https://careers.smartrecruiters.com/BoschGroup) | 🔲 | IG Metall ✅ · German ⭐ very low · AI/LLM/Cloud/Platform/Full Stack · Rec ⭐⭐⭐⭐⭐ |
+| 45 | BMW | Industrial AI | A | | Munich | [bmwgroup.jobs](https://www.bmwgroup.jobs/) | 🔲 | IG Metall ✅ · German ⭐⭐ (AI teams mostly English) · AI/Cloud/Software · Rec ⭐⭐⭐⭐ |
+| 46 | Mercedes-Benz | Industrial AI | A | | Stuttgart | [group.mercedes-benz.com/careers](https://group.mercedes-benz.com/careers) | 🔲 | IG Metall ✅ · German ⭐⭐ (MB.OS teams) · AI/MB.OS/Cloud · Rec ⭐⭐⭐⭐ |
+| 47 | ZEISS | Industrial AI | A | | Oberkochen / Munich | [zeiss.com/careers](https://www.zeiss.com/careers) | 🔲 | IG Metall ✅ · German ⭐⭐ · AI/Computer Vision/Software · Rec ⭐⭐⭐⭐☆ |
+| 48 | TRUMPF | Industrial AI | A | | Ditzingen | [trumpf.com/careers](https://www.trumpf.com/en_INT/careers) | 🔲 | IG Metall ✅ · German ⭐⭐ · AI/Platform/Industrial Software · Rec ⭐⭐⭐⭐ |
 | 49 | Helsing | Robotics / AD | A | P3 | Munich | [helsing.ai/careers](https://helsing.ai/careers) | 🔲 | |
 | 50 | Applied Intuition | Robotics / AD | A | | Munich | [appliedintuition.com/careers](https://appliedintuition.com/careers) | 🔲 | |
 | 51 | Agile Robots | Robotics / AD | A | | Munich | [agile-robots.com/career](https://www.agile-robots.com/en/career) | 🔲 | |
@@ -72,7 +71,7 @@ Curated for an **AI Engineer / Software Engineer** profile — selected for AI i
 | 56 | Doctolib | HealthTech | B | | Berlin | [careers.doctolib.com](https://careers.doctolib.com/) | 🔲 | |
 | 57 | Brainlab | HealthTech | B | | Munich | [brainlab.com/careers](https://www.brainlab.com/careers) | 🔲 | |
 | 58 | Vara | HealthTech | B | | Berlin | [vara.ai/careers](https://www.vara.ai/careers) | 🔲 | |
-| 59 | Aignostics | HealthTech | B | | Berlin | [aignostics.com/careers](https://aignostics.com/careers) | 🔲 | |
+| 59 | Aignostics | HealthTech | B | | Berlin | [aignostics.com/careers](https://www.aignostics.com/company/careers) | 🔲 | |
 | 60 | Flix | Logistics | B | P3 | Munich | [flix.careers](https://flix.careers/) | 🔲 | |
 | 61 | Forto | Logistics | B | | Berlin | [forto.com/careers](https://forto.com/careers) | 🔲 | |
 | 62 | sennder | Logistics | B | | Berlin | [sennder.com/careers](https://sennder.com/careers) | 🔲 | |
@@ -89,6 +88,12 @@ Curated for an **AI Engineer / Software Engineer** profile — selected for AI i
 | 73 | GetYourGuide | Internet / E-Commerce | B | | Berlin | [getyourguide.careers](https://getyourguide.careers/) | 🔲 | |
 | 74 | ABOUT YOU | Internet / E-Commerce | B | | Hamburg | [corporate.aboutyou.de/career](https://corporate.aboutyou.de/en/career) | 🔲 | |
 | 75 | CHECK24 | Internet / E-Commerce | B | | Munich | [jobs.check24.de](https://jobs.check24.de/en/) | 🔲 | |
+| 76 | Airbus | Aerospace / Defense | A | | Munich / Hamburg | [airbus.com/careers](https://www.airbus.com/en/careers) | 🔲 | IG Metall ✅ · German ⭐ very low · AI/Data/Cloud/Platform · Rec ⭐⭐⭐⭐⭐ |
+| 77 | Hensoldt | Aerospace / Defense | A | | Taufkirchen / Munich | [hensoldt.net/careers](https://www.hensoldt.net/careers/) | 🔲 | IG Metall ✅ · German ⭐⭐ · AI/Embedded/Software · Rec ⭐⭐⭐⭐ |
+| 78 | Rohde & Schwarz | Aerospace / Defense | A | | Munich | [karriere.rohde-schwarz.com](https://www.karriere.rohde-schwarz.com/) | 🔲 | IG Metall ✅ · German ⭐⭐ · Backend/Cloud/Embedded/AI · Rec ⭐⭐⭐⭐ |
+| 79 | Infineon | Semiconductor | A | | Neubiberg / Munich | [infineon.com/careers](https://www.infineon.com/cms/en/careers/) | 🔲 | IG Metall ✅ · German ⭐⭐ · AI/Embedded AI/Compiler/Cloud · Rec ⭐⭐⭐⭐ |
+| 80 | Continental | Automotive / ADAS | A | | Hanover | [jobs.continental.com](https://jobs.continental.com/) | 🔲 | IG Metall ✅ · German ⭐⭐⭐ (some teams) · ADAS/Cloud/Software · Rec ⭐⭐⭐ |
+| 81 | ZF Friedrichshafen | Automotive / ADAS | A | | Friedrichshafen | [careers.zf.com](https://careers.zf.com/) | 🔲 | IG Metall ✅ · German ⭐⭐⭐ (AI teams English) · AI/Autonomous Driving/Cloud · Rec ⭐⭐⭐ |
 
 ---
 
