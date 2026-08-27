@@ -15,43 +15,41 @@ interface WatchlistResult {
   tags: string[]
   postedAt: string
   url: string
-  source: 'arbeitnow' | 'linkedin' | 'greenhouse' | 'ashby' | 'lever' | 'smartrecruiters' | 'personio'
-  tier: string
-  priority: string | null
+  source:
+    | 'arbeitnow'
+    | 'linkedin'
+    | 'indeed'
+    | 'adzuna'
+    | 'greenhouse'
+    | 'ashby'
+    | 'lever'
+    | 'smartrecruiters'
+    | 'personio'
+  myPriority: string
   category: string
+  industry: string
   companyCity: string
+  careerUrl: string | null
 }
 
 interface NoCoverageCompany {
   name: string
-  tier: string
-  priority: string | null
+  myPriority: string
   category: string
-  careerPortalUrl: string | null
+  careerUrl: string | null
 }
 
 const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Frontend Engineer', 'Frontend', 'Front End', 'Front-end', 'AI Application Developer', 'AI Developer', 'Machine Learning Engineer', 'ML Engineer', 'Fullstack Engineer', 'Full Stack Engineer', 'Full-stack Engineer', 'Fullstack Developer']
 
 const PRIORITY_GROUPS: { key: string; label: string }[] = [
-  { key: 'P1', label: 'P1 — Dream tier' },
-  { key: 'P2', label: 'P2 — Best profile fit' },
-  { key: 'P3', label: 'P3 — Fast-growing' },
-  { key: 'other', label: 'Other — Broader watchlist' },
+  { key: 'S+', label: 'S+ — Top priority' },
+  { key: 'S', label: 'S — High priority' },
+  { key: 'A', label: 'A — Strong fit' },
+  { key: 'B', label: 'B — Worth watching' },
+  { key: 'other', label: 'Other' },
 ]
 
-const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2 }
-
-const COUNTRY_PATTERNS: Record<string, RegExp> = {
-  germany: /germany|deutschland|\bde\b/,
-}
-
-function locationMatchesCountry(location: string, country: string): boolean {
-  const c = country.trim().toLowerCase()
-  if (!c) return true
-  const loc = location.toLowerCase()
-  const pattern = COUNTRY_PATTERNS[c]
-  return pattern ? pattern.test(loc) : loc.includes(c)
-}
+const PRIORITY_ORDER: Record<string, number> = { 'S+': 0, S: 1, A: 2, B: 3 }
 
 function locationMatchesCity(location: string, city: string): boolean {
   const c = city.trim().toLowerCase()
@@ -59,16 +57,16 @@ function locationMatchesCity(location: string, city: string): boolean {
 }
 
 function groupResults(results: WatchlistResult[]): Record<string, WatchlistResult[]> {
-  const buckets: Record<string, WatchlistResult[]> = { P1: [], P2: [], P3: [], other: [] }
+  const buckets: Record<string, WatchlistResult[]> = { 'S+': [], S: [], A: [], B: [], other: [] }
   for (const r of results) {
-    const key = r.priority && buckets[r.priority] ? r.priority : 'other'
+    const key = buckets[r.myPriority] ? r.myPriority : 'other'
     buckets[key].push(r)
   }
   for (const list of Object.values(buckets)) {
     list.sort((a, b) => {
-      const tierDiff = (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99)
-      if (tierDiff !== 0) return tierDiff
-      return new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()
+      const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0
+      const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0
+      return tb - ta
     })
   }
   return buckets
@@ -87,6 +85,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
   const [companiesChecked, setCompaniesChecked] = useState(0)
   const [companiesWithDirectAts, setCompaniesWithDirectAts] = useState(0)
   const [noDirectCoverage, setNoDirectCoverage] = useState<NoCoverageCompany[]>([])
+  const [aggregatorStatus, setAggregatorStatus] = useState<Record<string, string> | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
@@ -138,12 +137,19 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
     setResults([])
     setSearched(true)
     setSavedIds(new Set())
+    setAggregatorStatus(null)
 
     try {
       const res = await fetch('/api/explore/watchlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: effectiveKeywords, resolveAts }),
+        body: JSON.stringify({
+          keywords: effectiveKeywords,
+          country,
+          city,
+          publishedAfter: minDate,
+          resolveAts,
+        }),
       })
       const json = await res.json()
       if (!res.ok || json.error) {
@@ -154,6 +160,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
       setCompaniesChecked(json.companiesChecked)
       setCompaniesWithDirectAts(json.companiesWithDirectAts ?? 0)
       setNoDirectCoverage(json.noDirectCoverage ?? [])
+      setAggregatorStatus(json.aggregatorStatus ?? null)
     } catch {
       setError('Network error — please try again')
     } finally {
@@ -166,16 +173,15 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
     setSavedIds((prev) => new Set([...prev, result.id]))
   }
 
-  const visibleResults = results.filter((r) => {
-    if (minDate && new Date(r.postedAt) < new Date(`${minDate}T00:00:00`)) return false
-    if (!locationMatchesCountry(r.location, country)) return false
-    if (!locationMatchesCity(r.location, city)) return false
-    return true
-  })
-
-  const filtersActive = Boolean(minDate || country.trim() || city.trim())
-
+  const visibleResults = results.filter((r) => locationMatchesCity(r.location, city))
+  const filtersActive = Boolean(city.trim())
   const grouped = groupResults(visibleResults)
+
+  const aggregatorIssues = aggregatorStatus
+    ? Object.entries(aggregatorStatus)
+        .filter(([, s]) => s !== 'ok')
+        .map(([name, s]) => `${name}: ${s === 'no_keys' ? 'no API key' : s.replace(/_/g, ' ')}`)
+    : []
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -226,6 +232,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
               Clear
             </button>
           )}
+          <p className="mt-1 text-[10px] text-zinc-400">Blank = last 30 days. Jobs with no detectable date are hidden once a date is set.</p>
         </div>
 
         <div>
@@ -251,7 +258,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
         </div>
 
         <p className="text-[10px] text-zinc-400">
-          Searches every company in your <code className="rounded bg-zinc-100 px-1">companylist.md</code> Master Tracker for these titles — direct from each company&apos;s job board where one is known, otherwise via aggregator search.
+          Searches every company in your Company directory for these titles — direct from the job board where one is known, otherwise via LinkedIn / Indeed / Adzuna.
         </p>
 
         <div className="mt-auto flex flex-col gap-2">
@@ -276,10 +283,15 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
       <main className="flex-1 overflow-y-auto p-4">
 
         {searched && !loading && !error && (
-          <p className="mb-3 text-xs text-zinc-500">
-            Checked {companiesChecked} companies ({companiesWithDirectAts} via direct job board) · {visibleResults.length} new role{visibleResults.length !== 1 ? 's' : ''} found
-            {filtersActive && results.length !== visibleResults.length && ` (${results.length} before filters)`}
-          </p>
+          <>
+            <p className="mb-1 text-xs text-zinc-500">
+              Checked {companiesChecked} companies ({companiesWithDirectAts} via direct job board) · {visibleResults.length} new role{visibleResults.length !== 1 ? 's' : ''} found
+              {filtersActive && results.length !== visibleResults.length && ` (${results.length} before city filter)`}
+            </p>
+            {aggregatorIssues.length > 0 && (
+              <p className="mb-3 text-[10px] text-zinc-400">Sources — {aggregatorIssues.join(' · ')}</p>
+            )}
+          </>
         )}
 
         {loading && (
@@ -297,20 +309,20 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
         {searched && !loading && !error && results.length === 0 && (
           <div className="flex flex-col items-center justify-center pt-24 text-center">
             <p className="text-sm font-medium text-zinc-500">No new roles found</p>
-            <p className="mt-1 text-xs text-zinc-400">Try different keywords, or check back later</p>
+            <p className="mt-1 text-xs text-zinc-400">Try different keywords, widen the date, or check back later</p>
           </div>
         )}
 
         {searched && !loading && !error && results.length > 0 && visibleResults.length === 0 && (
           <div className="flex flex-col items-center justify-center pt-24 text-center">
-            <p className="text-sm font-medium text-zinc-500">No roles match your filters</p>
-            <p className="mt-1 text-xs text-zinc-400">{results.length} role{results.length !== 1 ? 's' : ''} found overall — try loosening the date, country, or city</p>
+            <p className="text-sm font-medium text-zinc-500">No roles match your city filter</p>
+            <p className="mt-1 text-xs text-zinc-400">{results.length} role{results.length !== 1 ? 's' : ''} found overall — try clearing the city</p>
           </div>
         )}
 
         {!searched && (
           <div className="flex flex-col items-center justify-center pt-24 text-center">
-            <p className="text-sm text-zinc-400">Click Refresh to check your whole company list</p>
+            <p className="text-sm text-zinc-400">Click Refresh to check your whole company directory</p>
           </div>
         )}
 
@@ -332,7 +344,7 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
                         isSaved={savedIds.has(result.id)}
                         onWaitlist={() => handleWaitlist(result)}
                         onMarkApplied={() => onApply({ companyName: result.company, title: result.title, location: result.location, jobLink: result.url })}
-                        meta={{ tier: result.tier, priority: result.priority, city: result.companyCity }}
+                        meta={{ priority: result.myPriority, city: result.companyCity, industry: result.industry }}
                       />
                     ))}
                   </div>
@@ -343,23 +355,23 @@ export default function WatchlistExplorer({ onApply }: { onApply: (prefill: Appl
             {noDirectCoverage.length > 0 && (
               <details className="group">
                 <summary className="mb-2 cursor-pointer text-xs font-bold uppercase tracking-widest text-zinc-400">
-                  No direct visibility ({noDirectCoverage.length})
+                  No visibility ({noDirectCoverage.length})
                 </summary>
                 <p className="mb-2 text-[11px] text-zinc-400">
-                  No known job board detected and nothing matched via aggregator search — this doesn&apos;t mean these companies have no open roles, just that we couldn&apos;t check reliably. Worth a manual look.
+                  No known job board detected and nothing matched via LinkedIn / Indeed / Adzuna — this doesn&apos;t mean these companies have no open roles, just that we couldn&apos;t check reliably. Worth a manual look.
                 </p>
                 <div className="flex flex-col gap-1">
                   {[...noDirectCoverage]
-                    .sort((a, b) => (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99))
+                    .sort((a, b) => (PRIORITY_ORDER[a.myPriority] ?? 99) - (PRIORITY_ORDER[b.myPriority] ?? 99))
                     .map((c) => (
                       <div key={c.name} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs">
                         <span className="flex items-center gap-2">
                           <span className="font-medium text-zinc-700">{c.name}</span>
-                          <span className="text-[10px] text-zinc-400">{c.tier}{c.priority ? ` · ${c.priority}` : ''}</span>
+                          <span className="text-[10px] text-zinc-400">{c.myPriority || c.category}</span>
                         </span>
-                        {c.careerPortalUrl && (
+                        {c.careerUrl && (
                           <a
-                            href={c.careerPortalUrl}
+                            href={c.careerUrl}
                             target="_blank"
                             rel="noreferrer"
                             className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-900"
