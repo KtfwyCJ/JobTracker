@@ -1,7 +1,6 @@
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { detectAts, type AtsMapping } from './providers'
-import type { WatchlistCompany } from './companyList'
 
 const CACHE_PATH = join(process.cwd(), 'company-ats-cache.json')
 const OVERRIDES_PATH = join(process.cwd(), 'company-providers.json')
@@ -66,7 +65,7 @@ async function mapWithConcurrency<T, R>(
  * company's career portal page, which is too slow to redo on every refresh.
  */
 export async function resolveCompanyAts(
-  companies: WatchlistCompany[],
+  companies: { name: string; careerPortalUrl: string | null }[],
   force = false
 ): Promise<Map<string, AtsMapping | null>> {
   const overrides = loadOverrides()
