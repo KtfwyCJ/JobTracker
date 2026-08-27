@@ -71,6 +71,42 @@ const COUNTRY_SYNONYMS: Record<string, string> = {
   argentina: 'argentina',
   emea: 'emea',
   apac: 'apac',
+  // ISO-3166 alpha-2 codes — ATS location strings use these lowercase
+  // ("Braga, pt", "Abstatt, de"). Only trusted when lowercase in the source
+  // (see countryFromLocationTail) so "San Francisco, CA" isn't read as Canada.
+  at: 'austria',
+  ch: 'switzerland',
+  fr: 'france',
+  nl: 'netherlands',
+  es: 'spain',
+  it: 'italy',
+  pl: 'poland',
+  ie: 'ireland',
+  pt: 'portugal',
+  be: 'belgium',
+  se: 'sweden',
+  dk: 'denmark',
+  no: 'norway',
+  fi: 'finland',
+  ca: 'canada',
+  in: 'india',
+  au: 'australia',
+  br: 'brazil',
+  sg: 'singapore',
+  jp: 'japan',
+  ro: 'romania',
+  cz: 'czech republic',
+  hu: 'hungary',
+  gr: 'greece',
+  tr: 'turkey',
+  mx: 'mexico',
+  ar: 'argentina',
+  il: 'israel',
+  ae: 'united arab emirates',
+  vn: 'vietnam',
+  cn: 'china',
+  hk: 'hong kong',
+  za: 'south africa',
 }
 
 // Canonical country -> known cities/regions that identify it on their own,
@@ -120,12 +156,25 @@ export function canonicalCountry(raw: string): string {
   return COUNTRY_SYNONYMS[cleaned] ?? cleaned
 }
 
-/** Last comma-separated segment of a location, mapped to a canonical country. */
+/**
+ * Trailing comma-segment of a location mapped to a canonical country — a
+ * recognised country name, or a lowercase ISO alpha-2 code ("Braga, pt").
+ * An uppercase 2-letter token ("San Francisco, CA") is a state, not a country,
+ * so it is ignored. Returns '' when no segment names a country.
+ */
 export function countryFromLocationTail(location: string): string {
   const parts = location.split(',').map((p) => p.trim()).filter(Boolean)
   for (let i = parts.length - 1; i >= 0; i--) {
-    const c = canonicalCountry(parts[i])
-    if (c && (COUNTRY_SYNONYMS[parts[i].trim().toLowerCase()] || c in COUNTRY_CITIES)) return c
+    const raw = parts[i]
+    const lower = raw.toLowerCase()
+    if (lower.length === 2 && raw !== lower) continue // uppercase code = state, not a country
+    const cleaned = lower.replace(/\(.*?\)/g, '').replace(/[-_/].*$/, '').trim()
+    const c = canonicalCountry(lower)
+    // Accept only a recognised country token — not merely a prefix of a region
+    // name ("Nordrhein-Westfalen" must not resolve to "nordrhein").
+    if (COUNTRY_SYNONYMS[lower] || COUNTRY_SYNONYMS[cleaned] || (c && c in COUNTRY_CITIES)) {
+      return c
+    }
   }
   return ''
 }
@@ -195,6 +244,11 @@ export function locationMatchesCountry(
     if (jc) return jc === want
   }
 
+  // A trailing country name / lowercase ISO code is authoritative — it's how
+  // both LinkedIn ("…, Germany") and the ATS feeds ("Braga, pt") report country.
+  const tail = countryFromLocationTail(location)
+  if (tail) return tail === want
+
   const loc = stripRemote(location)
   if (!loc) return true // bare "Remote" / empty
 
@@ -202,4 +256,9 @@ export function locationMatchesCountry(
   if (mentionsOtherCountry(loc, want)) return false
   if (mentionsKnownCity(loc, want)) return true
   return true
+}
+
+export function locationMatchesCity(location: string, city: string): boolean {
+  const c = city.trim().toLowerCase()
+  return !c || location.toLowerCase().includes(c)
 }

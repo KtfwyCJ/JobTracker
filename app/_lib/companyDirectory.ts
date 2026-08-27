@@ -43,3 +43,29 @@ export function directoryCity(entry: CompanyDirectoryEntry): string {
   const raw = entry.mainGermanyOffices || entry.hq || ''
   return raw.split(/[;/]/)[0]?.trim() ?? ''
 }
+
+const PRIORITY_GROUPS: { key: string; label: string }[] = [
+  { key: 'S+', label: 'S+ — Top priority' },
+  { key: 'S', label: 'S — High priority' },
+  { key: 'A', label: 'A — Strong fit' },
+  { key: 'B', label: 'B — Worth watching' },
+  { key: 'Other', label: 'Other' },
+]
+
+/** Companies bucketed by `myPriority` (S+/S/A/B/Other), sorted A→Z within a bucket. */
+export function groupByPriority(
+  entries: CompanyDirectoryEntry[]
+): { key: string; label: string; companies: CompanyDirectoryEntry[] }[] {
+  const known = new Set(['S+', 'S', 'A', 'B'])
+  const buckets: Record<string, CompanyDirectoryEntry[]> = { 'S+': [], S: [], A: [], B: [], Other: [] }
+  for (const e of entries) {
+    const p = (e.myPriority || '').trim()
+    buckets[known.has(p) ? p : 'Other'].push(e)
+  }
+  for (const list of Object.values(buckets)) {
+    list.sort((a, b) => a.company.localeCompare(b.company))
+  }
+  return PRIORITY_GROUPS.map((g) => ({ ...g, companies: buckets[g.key] })).filter(
+    (g) => g.companies.length > 0
+  )
+}

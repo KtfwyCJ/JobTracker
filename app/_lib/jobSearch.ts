@@ -418,7 +418,11 @@ export async function fetchLinkedInForCompany(
   daysOld: number
 ): Promise<SourceResult> {
   const tpr = `r${Math.max(1, Math.round(daysOld)) * 86400}`
-  const terms = clusters.length ? clusters : ['']
+  // A plain "<company>" query (LinkedIn ranks exact company matches high) plus a
+  // few "<company> <role>" queries — the guest API has no hard company filter,
+  // so casting wider raises the number of real company postings we see.
+  const terms = ['', ...clusters.slice(0, 3)]
+  const pages = [0, 25, 50, 75]
   let anyOk = false
   let anyResponse = false
   const all: JobPosting[] = []
@@ -449,7 +453,7 @@ export async function fetchLinkedInForCompany(
   }
 
   const tasks: Array<() => Promise<void>> = []
-  for (const term of terms) for (const start of [0, 25]) tasks.push(() => runQuery(term, start))
+  for (const term of terms) for (const start of pages) tasks.push(() => runQuery(term, start))
   let next = 0
   await Promise.all(
     Array.from({ length: Math.min(4, tasks.length) }, async () => {
@@ -457,8 +461,16 @@ export async function fetchLinkedInForCompany(
     })
   )
 
+  // Dedupe by LinkedIn job id — the wider queries overlap heavily.
+  const seen = new Set<string>()
+  const jobs = all.filter((j) => {
+    if (seen.has(j.id)) return false
+    seen.add(j.id)
+    return true
+  })
+
   const status: SourceStatus = anyOk ? 'ok' : anyResponse ? 'blocked' : 'error'
-  return { jobs: all, status }
+  return { jobs, status }
 }
 
 export async function fetchIndeedForCompany(
