@@ -1,16 +1,33 @@
-import { parseCompanyList, type WatchlistCompany } from '../../../_lib/companyList'
-import { fetchArbeitnow, fetchLinkedIn, type JobPosting } from '../../../_lib/jobSearch'
+import { COMPANY_DIRECTORY, type CompanyDirectoryEntry } from '../../../_lib/data/companies'
+import {
+  fetchArbeitnow,
+  fetchLinkedIn,
+  fetchIndeed,
+  fetchAdzuna,
+  countryCodeFor,
+  type JobPosting,
+  type SourceStatus,
+} from '../../../_lib/jobSearch'
 import { resolveCompanyAts } from '../../../_lib/atsCache'
 import { fetchAtsJobs, type AtsMapping } from '../../../_lib/providers'
+import {
+  matchJobToCompany,
+  SUPPORTED_ATS,
+  toAtsInput,
+  directoryCity,
+} from '../../../_lib/companyDirectory'
 
-export interface WatchlistResult extends JobPosting {
-  tier: string
-  priority: string | null
+interface WatchlistResult extends JobPosting {
+  myPriority: string
   category: string
+  industry: string
   companyCity: string
+  careerUrl: string | null
 }
 
 const CONCURRENCY = 8
+const DEFAULT_DAYS = 30
+const MAX_DAYS = 60
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -31,9 +48,40 @@ async function mapWithConcurrency<T, R>(
   return results
 }
 
-function matchesCompany(job: JobPosting, company: WatchlistCompany): boolean {
-  const jobCompany = job.company.toLowerCase()
-  return company.aliases.some((alias) => jobCompany.includes(alias.toLowerCase()))
+function daysOldFrom(publishedAfter: string): number {
+  if (!publishedAfter) return DEFAULT_DAYS
+  const t = Date.parse(`${publishedAfter}T00:00:00`)
+  if (Number.isNaN(t)) return DEFAULT_DAYS
+  const diffDays = Math.ceil((Date.now() - t) / 86_400_000)
+  if (diffDays < 1) return 1
+  return Math.min(diffDays, MAX_DAYS)
+}
+
+const COUNTRY_PATTERNS: Record<string, RegExp> = {
+  germany:
+    /germany|deutschland|\bde\b|berlin|munich|münchen|hamburg|frankfurt|cologne|köln|stuttgart|düsseldorf|leipzig|remote/i,
+  austria: /austria|österreich|vienna|wien/i,
+  switzerland: /switzerland|schweiz|zurich|zürich|geneva|basel/i,
+  'united kingdom': /united kingdom|\buk\b|england|london|manchester|\bgb\b/i,
+  uk: /united kingdom|\buk\b|england|london|manchester|\bgb\b/i,
+  usa: /united states|\busa?\b|new york|san francisco|seattle|austin|boston/i,
+  'united states': /united states|\busa?\b|new york|san francisco|seattle|austin|boston/i,
+  france: /france|paris|lyon|toulouse/i,
+  netherlands: /netherlands|nederland|amsterdam|rotterdam|utrecht/i,
+}
+
+function locationMatchesCountry(location: string, country: string): boolean {
+  const c = country.trim().toLowerCase()
+  if (!c) return true
+  const loc = location.toLowerCase()
+  if (!loc) return false
+  const pattern = COUNTRY_PATTERNS[c]
+  return pattern ? pattern.test(loc) : loc.includes(c)
+}
+
+function locationMatchesCity(location: string, city: string): boolean {
+  const c = city.trim().toLowerCase()
+  return !c || location.toLowerCase().includes(c)
 }
 
 function titleMatches(job: JobPosting, keywordPatterns: string[]): boolean {
@@ -41,7 +89,7 @@ function titleMatches(job: JobPosting, keywordPatterns: string[]): boolean {
   return keywordPatterns.some((k) => title.includes(k))
 }
 
-function dedupe(jobs: JobPosting[]): JobPosting[] {
+function dedupe<T extends JobPosting>(jobs: T[]): T[] {
   const seen = new Set<string>()
   return jobs.filter((j) => {
     const key = `${j.title.toLowerCase()}|${j.company.toLowerCase()}`
@@ -51,79 +99,124 @@ function dedupe(jobs: JobPosting[]): JobPosting[] {
   })
 }
 
-function attachMeta(jobs: JobPosting[], company: WatchlistCompany): WatchlistResult[] {
+function attachMeta(jobs: JobPosting[], entry: CompanyDirectoryEntry): WatchlistResult[] {
   return jobs.map((j) => ({
     ...j,
-    tier: company.tier,
-    priority: company.priority,
-    category: company.category,
-    companyCity: company.city,
+    myPriority: entry.myPriority || '',
+    category: entry.category,
+    industry: entry.industry,
+    companyCity: directoryCity(entry),
+    careerUrl: entry.careerUrl,
   }))
 }
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { keywords?: string[]; resolveAts?: boolean }
-    const keywords = body.keywords?.map((k) => k.trim()).filter(Boolean) ?? []
+    const body = (await request.json()) as {
+      keywords?: string[]
+      country?: string
+      city?: string
+      publishedAfter?: string
+      resolveAts?: boolean
+    }
 
+    const keywords = body.keywords?.map((k) => k.trim()).filter(Boolean) ?? []
     if (keywords.length === 0) {
       return Response.json({ error: 'keywords are required' }, { status: 400 })
     }
 
-    let companies: WatchlistCompany[]
-    try {
-      companies = parseCompanyList()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      return Response.json({ error: `Could not read company list: ${msg}` }, { status: 500 })
+    const country = (body.country ?? 'Germany').trim()
+    const city = (body.city ?? '').trim()
+    const publishedAfter = (body.publishedAfter ?? '').trim()
+    const daysOld = daysOldFrom(publishedAfter)
+    const minDateMs = publishedAfter ? Date.parse(`${publishedAfter}T00:00:00`) : null
+    const keywordPatterns = keywords.map((k) => k.toLowerCase())
+    const countryCode = countryCodeFor(country)
+    const location = city || country
+
+    const companies = COMPANY_DIRECTORY
+    const atsByCompany = await resolveCompanyAts(
+      companies.map(toAtsInput),
+      body.resolveAts === true
+    )
+
+    // Aggregator pool — a handful of queries, run once per Refresh, then matched
+    // back to the 200 companies by employer name.
+    const [arbeitnowRes, linkedInRes, indeedRes, adzunaRes] = await Promise.all([
+      fetchArbeitnow(keywords),
+      fetchLinkedIn(keywords, location, daysOld),
+      fetchIndeed(keywords, location, countryCode, daysOld),
+      fetchAdzuna(keywords, location, countryCode, daysOld),
+    ])
+
+    const aggregatorStatus: Record<'arbeitnow' | 'linkedin' | 'indeed' | 'adzuna', SourceStatus> = {
+      arbeitnow: arbeitnowRes.status,
+      linkedin: linkedInRes.status,
+      indeed: indeedRes.status,
+      adzuna: adzunaRes.status,
     }
 
-    const atsByCompany = await resolveCompanyAts(companies, body.resolveAts === true)
-    const keywordPatterns = keywords.map((k) => k.toLowerCase())
+    const pool = [
+      ...arbeitnowRes.jobs,
+      ...linkedInRes.jobs,
+      ...indeedRes.jobs,
+      ...adzunaRes.jobs,
+    ].filter((j) => titleMatches(j, keywordPatterns))
 
-    // Companies without a detected ATS fall back to the Arbeitnow + LinkedIn aggregator search.
-    const fallbackCompanies = companies.filter((c) => !atsByCompany.get(c.name))
-    const arbeitnowJobs = fallbackCompanies.length > 0 ? (await fetchArbeitnow(keywords)).jobs : []
-    const titleMatchedArbeitnow = arbeitnowJobs.filter((j) => titleMatches(j, keywordPatterns))
+    const perCompany = await mapWithConcurrency(companies, CONCURRENCY, async (entry) => {
+      const mapping: AtsMapping | null = atsByCompany.get(entry.company) ?? null
 
-    const perCompany = await mapWithConcurrency(companies, CONCURRENCY, async (company) => {
-      const mapping: AtsMapping | null = atsByCompany.get(company.name) ?? null
-
+      let atsJobs: JobPosting[] = []
       if (mapping) {
-        const atsJobs = await fetchAtsJobs(mapping, company.name)
-        const results = attachMeta(dedupe(atsJobs.filter((j) => titleMatches(j, keywordPatterns))), company)
-        return { company, results, hasDirectAts: true }
+        try {
+          atsJobs = (await fetchAtsJobs(mapping, entry.company)).filter((j) =>
+            titleMatches(j, keywordPatterns)
+          )
+        } catch {
+          atsJobs = []
+        }
       }
 
-      const linkedInJobs = (await fetchLinkedIn(keywords, company.city, 30)).jobs
-      const titleMatchedLinkedIn = linkedInJobs.filter((j) => titleMatches(j, keywordPatterns))
+      const aggJobs = pool.filter((j) => matchJobToCompany(j, entry))
+      const merged = dedupe<JobPosting>([...atsJobs, ...aggJobs])
 
-      const combined = dedupe([
-        ...titleMatchedArbeitnow.filter((j) => matchesCompany(j, company)),
-        ...titleMatchedLinkedIn.filter((j) => matchesCompany(j, company)),
-      ])
-
-      return { company, results: attachMeta(combined, company), hasDirectAts: false }
+      return {
+        entry,
+        results: attachMeta(merged, entry),
+        hasDirectAts: Boolean(mapping),
+        atsSupported: Boolean(mapping) || SUPPORTED_ATS.test(entry.ats || ''),
+      }
     })
 
-    // Companies with no direct ATS AND nothing found via the aggregator are ambiguous —
-    // it could mean there's truly nothing open, or just that we have no real visibility
-    // into that company's listings. Surface them separately instead of silently omitting.
-    const noDirectCoverage = perCompany
-      .filter((c) => !c.hasDirectAts && c.results.length === 0)
-      .map(({ company }) => ({
-        name: company.name,
-        tier: company.tier,
-        priority: company.priority,
-        category: company.category,
-        careerPortalUrl: company.careerPortalUrl,
+    // Server-side keyword/date/country/city filtering — keyword already applied.
+    const filtered = perCompany.map((c) => ({
+      ...c,
+      results: c.results.filter((j) => {
+        if (minDateMs !== null) {
+          if (!j.postedAt) return false
+          if (Date.parse(j.postedAt) < minDateMs) return false
+        }
+        if (!locationMatchesCountry(j.location, country)) return false
+        if (!locationMatchesCity(j.location, city)) return false
+        return true
+      }),
+    }))
+
+    const noDirectCoverage = filtered
+      .filter((c) => c.results.length === 0)
+      .map(({ entry }) => ({
+        name: entry.company,
+        myPriority: entry.myPriority || '',
+        category: entry.category,
+        careerUrl: entry.careerUrl,
       }))
 
     return Response.json({
-      results: perCompany.flatMap((c) => c.results),
+      results: filtered.flatMap((c) => c.results),
       companiesChecked: companies.length,
-      companiesWithDirectAts: companies.length - fallbackCompanies.length,
+      companiesWithDirectAts: filtered.filter((c) => c.hasDirectAts).length,
       noDirectCoverage,
+      aggregatorStatus,
       keywordsUsed: keywords,
     })
   } catch (err) {
