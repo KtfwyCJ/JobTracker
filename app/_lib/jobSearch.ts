@@ -163,6 +163,17 @@ export async function fetchLinkedIn(
   return { jobs: all, status }
 }
 
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&nbsp;/g, ' ')
+}
+
 function parseLinkedInHTML(html: string): JobPosting[] {
   const jobs: JobPosting[] = []
   for (const part of html.split(/(?=<li\b)/)) {
@@ -171,8 +182,9 @@ function parseLinkedInHTML(html: string): JobPosting[] {
     const title = part
       .match(/class="[^"]*base-search-card__title[^"]*"[^>]*>\s*([^<\n]+)/)?.[1]
       ?.trim()
+    // The subtitle wraps the company in a nested <a>; allow (and skip) that tag.
     const company = part
-      .match(/class="[^"]*base-search-card__subtitle[^"]*"[\s\S]{0,300}?>\s*([^<\n]+)/)?.[1]
+      .match(/base-search-card__subtitle[\s\S]{0,200}?>\s*(?:<a[^>]*>\s*)?([^<\n]+)/)?.[1]
       ?.trim()
     const location = part
       .match(/class="[^"]*job-search-card__location[^"]*"[^>]*>\s*([^<\n]+)/)?.[1]
@@ -183,9 +195,9 @@ function parseLinkedInHTML(html: string): JobPosting[] {
 
     jobs.push({
       id: id ? `li-${id}` : `li-${Date.now()}-${Math.random()}`,
-      title,
-      company: company ?? '',
-      location: location ?? '',
+      title: decodeEntities(title),
+      company: company ? decodeEntities(company) : '',
+      location: location ? decodeEntities(location) : '',
       remote: false,
       jobTypes: [],
       tags: [],
