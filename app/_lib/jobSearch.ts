@@ -1,8 +1,12 @@
+import { canonicalCountry, countryFromLocationTail } from './location'
+
 export interface JobPosting {
   id: string
   title: string
   company: string
   location: string
+  /** Canonical country when a source provides / implies one; '' when unknown. */
+  country?: string
   remote: boolean
   jobTypes: string[]
   tags: string[]
@@ -193,11 +197,13 @@ function parseLinkedInHTML(html: string): JobPosting[] {
 
     if (!title || !url) continue
 
+    const loc = location ? decodeEntities(location) : ''
     jobs.push({
       id: id ? `li-${id}` : `li-${Date.now()}-${Math.random()}`,
       title: decodeEntities(title),
       company: company ? decodeEntities(company) : '',
-      location: location ? decodeEntities(location) : '',
+      location: loc,
+      country: countryFromLocationTail(loc),
       remote: false,
       jobTypes: [],
       tags: [],
@@ -213,7 +219,7 @@ function parseLinkedInHTML(html: string): JobPosting[] {
 
 export async function fetchAdzuna(
   keywords: string[],
-  location: string,
+  city: string,
   countryCode: string,
   daysOld: number
 ): Promise<SourceResult> {
@@ -236,7 +242,9 @@ export async function fetchAdzuna(
         'content-type': 'application/json',
         max_days_old: String(Math.max(1, Math.round(daysOld))),
       })
-      if (location.trim()) params.set('where', location.trim())
+      // Adzuna's country is the path segment; `where` is a place *within* it
+      // (a city/region). Sending the country name here returns zero results.
+      if (city.trim()) params.set('where', city.trim())
 
       const res = await fetch(
         `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/${page}?${params}`,
@@ -252,11 +260,13 @@ export async function fetchAdzuna(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const j = row as any
         const desc: string = j.description ?? ''
+        const area: string[] = Array.isArray(j.location?.area) ? j.location.area : []
         all.push({
           id: `ad-${j.id ?? Math.random()}`,
           title: j.title ?? '',
           company: j.company?.display_name ?? '',
           location: j.location?.display_name ?? '',
+          country: canonicalCountry(area[0] ?? ''),
           remote: /\bremote\b/i.test(`${j.title ?? ''} ${desc}`),
           jobTypes: j.contract_time ? [String(j.contract_time)] : [],
           tags: j.category?.label ? [String(j.category.label)] : [],
@@ -296,6 +306,8 @@ export async function fetchIndeed(
 ): Promise<SourceResult> {
   const host = countryCode === 'us' || !countryCode ? 'www.indeed.com' : `${countryCode}.indeed.com`
   const q = `(${keywords.map((k) => `"${k}"`).join(' OR ')})`
+  // Indeed's search is domain-scoped to one country, so every hit is that country.
+  const domainCountry = canonicalCountry(countryCode || 'us')
   const all: JobPosting[] = []
   let sawPage = false
 
@@ -321,7 +333,7 @@ export async function fetchIndeed(
         !html.includes('mosaic-provider-jobcards')
       if (looksBlocked && all.length === 0) return { jobs: [], status: 'blocked' }
 
-      all.push(...parseIndeedHTML(html))
+      for (const job of parseIndeedHTML(html)) all.push({ ...job, country: domainCountry })
     }
     return { jobs: all, status: all.length ? 'ok' : sawPage ? 'blocked' : 'error' }
   } catch {

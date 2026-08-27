@@ -16,6 +16,7 @@ import {
   toAtsInput,
   directoryCity,
 } from '../../../_lib/companyDirectory'
+import { locationMatchesCountry } from '../../../_lib/location'
 
 interface WatchlistResult extends JobPosting {
   myPriority: string
@@ -55,28 +56,6 @@ function daysOldFrom(publishedAfter: string): number {
   const diffDays = Math.ceil((Date.now() - t) / 86_400_000)
   if (diffDays < 1) return 1
   return Math.min(diffDays, MAX_DAYS)
-}
-
-const COUNTRY_PATTERNS: Record<string, RegExp> = {
-  germany:
-    /germany|deutschland|\bde\b|berlin|munich|münchen|hamburg|frankfurt|cologne|köln|stuttgart|düsseldorf|leipzig|remote/i,
-  austria: /austria|österreich|vienna|wien/i,
-  switzerland: /switzerland|schweiz|zurich|zürich|geneva|basel/i,
-  'united kingdom': /united kingdom|\buk\b|england|london|manchester|\bgb\b/i,
-  uk: /united kingdom|\buk\b|england|london|manchester|\bgb\b/i,
-  usa: /united states|\busa?\b|new york|san francisco|seattle|austin|boston/i,
-  'united states': /united states|\busa?\b|new york|san francisco|seattle|austin|boston/i,
-  france: /france|paris|lyon|toulouse/i,
-  netherlands: /netherlands|nederland|amsterdam|rotterdam|utrecht/i,
-}
-
-function locationMatchesCountry(location: string, country: string): boolean {
-  const c = country.trim().toLowerCase()
-  if (!c) return true
-  const loc = location.toLowerCase()
-  if (!loc) return false
-  const pattern = COUNTRY_PATTERNS[c]
-  return pattern ? pattern.test(loc) : loc.includes(c)
 }
 
 function locationMatchesCity(location: string, city: string): boolean {
@@ -146,7 +125,7 @@ export async function POST(request: Request) {
       fetchArbeitnow(keywords),
       fetchLinkedIn(keywords, location, daysOld),
       fetchIndeed(keywords, location, countryCode, daysOld),
-      fetchAdzuna(keywords, location, countryCode, daysOld),
+      fetchAdzuna(keywords, city, countryCode, daysOld),
     ])
 
     const aggregatorStatus: Record<'arbeitnow' | 'linkedin' | 'indeed' | 'adzuna', SourceStatus> = {
@@ -196,7 +175,7 @@ export async function POST(request: Request) {
           if (!j.postedAt) return false
           if (Date.parse(j.postedAt) < minDateMs) return false
         }
-        if (!locationMatchesCountry(j.location, country)) return false
+        if (!locationMatchesCountry(j.location, country, j.country)) return false
         if (!locationMatchesCity(j.location, city)) return false
         return true
       }),
