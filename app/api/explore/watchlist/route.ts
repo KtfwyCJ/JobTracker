@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     // Companies without a detected ATS fall back to the Arbeitnow + LinkedIn aggregator search.
     const fallbackCompanies = companies.filter((c) => !atsByCompany.get(c.name))
-    const arbeitnowJobs = fallbackCompanies.length > 0 ? await fetchArbeitnow(keywords) : []
+    const arbeitnowJobs = fallbackCompanies.length > 0 ? (await fetchArbeitnow(keywords)).jobs : []
     const titleMatchedArbeitnow = arbeitnowJobs.filter((j) => titleMatches(j, keywordPatterns))
 
     const perCompany = await mapWithConcurrency(companies, CONCURRENCY, async (company) => {
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
         return { company, results, hasDirectAts: true }
       }
 
-      const linkedInJobs = await fetchLinkedIn(keywords, company.city)
+      const linkedInJobs = (await fetchLinkedIn(keywords, company.city, 30)).jobs
       const titleMatchedLinkedIn = linkedInJobs.filter((j) => titleMatches(j, keywordPatterns))
 
       const combined = dedupe([

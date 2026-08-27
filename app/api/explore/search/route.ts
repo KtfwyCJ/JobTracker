@@ -14,12 +14,12 @@ export async function POST(request: Request) {
       return Response.json({ error: 'keywords and location are required' }, { status: 400 })
     }
 
-    const [arbeitnowJobs, linkedInJobs] = await Promise.all([
+    const [arbeitnowRes, linkedInRes] = await Promise.all([
       fetchArbeitnow(keywords),
-      fetchLinkedIn(keywords, location.trim()),
+      fetchLinkedIn(keywords, location.trim(), 30),
     ])
 
-    let jobs = [...arbeitnowJobs, ...linkedInJobs]
+    let jobs = [...arbeitnowRes.jobs, ...linkedInRes.jobs]
 
     // Keep only jobs whose title contains at least one keyword
     const keywordPatterns = keywords.map((k) => k.toLowerCase())

@@ -57,6 +57,9 @@ generated-cvs/
 # internal planning/spec docs
 docs/
 
+# dev-only aggregator source probe
+scripts/try-aggregators.ts
+
 # vercel
 .vercel
 
