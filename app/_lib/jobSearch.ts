@@ -78,6 +78,11 @@ function dedupeKeywords(keywords: string[]): string[] {
   return out
 }
 
+/** Deduped keyword list, capped so per-company fan-out stays bounded. */
+export function keywordClusters(keywords: string[]): string[] {
+  return dedupeKeywords(keywords).slice(0, 6)
+}
+
 // ── Arbeitnow ────────────────────────────────────────────────────────────────
 
 export async function fetchArbeitnow(keywords: string[]): Promise<SourceResult> {
@@ -399,4 +404,167 @@ function parseIndeedHTML(html: string): JobPosting[] {
     })
   }
   return jobs
+}
+
+// ── Per-company scoped fetchers ──────────────────────────────────────────────
+// Used by POST /api/explore/company-jobs. Each source is queried with the
+// company name AND the role keyword clusters, so recall is high for a specific
+// employer instead of relying on a global feed + name match.
+
+export async function fetchLinkedInForCompany(
+  company: string,
+  clusters: string[],
+  location: string,
+  daysOld: number
+): Promise<SourceResult> {
+  const tpr = `r${Math.max(1, Math.round(daysOld)) * 86400}`
+  const terms = clusters.length ? clusters : ['']
+  let anyOk = false
+  let anyResponse = false
+  const all: JobPosting[] = []
+
+  const runQuery = async (term: string, start: number) => {
+    try {
+      const params = new URLSearchParams({
+        keywords: `${company} ${term}`.trim(),
+        location,
+        start: String(start),
+        f_TPR: tpr,
+      })
+      const res = await fetch(
+        `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?${params}`,
+        {
+          headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html' },
+          signal: AbortSignal.timeout(10000),
+        }
+      )
+      anyResponse = true
+      if (!res.ok) return
+      const jobs = parseLinkedInHTML(await res.text())
+      if (jobs.length) anyOk = true
+      all.push(...jobs)
+    } catch {
+      /* one query failing is fine */
+    }
+  }
+
+  const tasks: Array<() => Promise<void>> = []
+  for (const term of terms) for (const start of [0, 25]) tasks.push(() => runQuery(term, start))
+  let next = 0
+  await Promise.all(
+    Array.from({ length: Math.min(4, tasks.length) }, async () => {
+      while (next < tasks.length) await tasks[next++]()
+    })
+  )
+
+  const status: SourceStatus = anyOk ? 'ok' : anyResponse ? 'blocked' : 'error'
+  return { jobs: all, status }
+}
+
+export async function fetchIndeedForCompany(
+  company: string,
+  clusters: string[],
+  location: string,
+  countryCode: string,
+  daysOld: number
+): Promise<SourceResult> {
+  const host = countryCode === 'us' || !countryCode ? 'www.indeed.com' : `${countryCode}.indeed.com`
+  const domainCountry = canonicalCountry(countryCode || 'us')
+  const roleOr = clusters.length ? `(${clusters.map((k) => `"${k}"`).join(' OR ')})` : ''
+  const q = `company:"${company}" ${roleOr}`.trim()
+  const all: JobPosting[] = []
+  let sawPage = false
+
+  try {
+    for (const start of [0, 10]) {
+      const params = new URLSearchParams({
+        q,
+        l: location.trim(),
+        fromage: String(Math.max(1, Math.round(daysOld))),
+        sort: 'date',
+        start: String(start),
+      })
+      const res = await fetch(`https://${host}/jobs?${params}`, {
+        headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!res.ok) return { jobs: all, status: all.length ? 'ok' : 'blocked' }
+      const html = await res.text()
+      sawPage = true
+      const looksBlocked =
+        /captcha|cf-challenge|Cloudflare|verify you are a human/i.test(html) &&
+        !html.includes('mosaic-provider-jobcards')
+      if (looksBlocked && all.length === 0) return { jobs: [], status: 'blocked' }
+      for (const job of parseIndeedHTML(html)) all.push({ ...job, country: domainCountry })
+    }
+    return { jobs: all, status: all.length ? 'ok' : sawPage ? 'blocked' : 'error' }
+  } catch {
+    return { jobs: all, status: all.length ? 'ok' : 'blocked' }
+  }
+}
+
+export async function fetchAdzunaForCompany(
+  company: string,
+  clusters: string[],
+  city: string,
+  countryCode: string,
+  daysOld: number
+): Promise<SourceResult> {
+  const appId = process.env.ADZUNA_APP_ID
+  const appKey = process.env.ADZUNA_APP_KEY
+  if (!appId || !appKey) return { jobs: [], status: 'no_keys' }
+  if (!countryCode) return { jobs: [], status: 'no_country' }
+
+  const perPage = 50
+  const maxPages = 5
+  const all: JobPosting[] = []
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      const params = new URLSearchParams({
+        app_id: appId,
+        app_key: appKey,
+        results_per_page: String(perPage),
+        what_phrase: company,
+        'content-type': 'application/json',
+        max_days_old: String(Math.max(1, Math.round(daysOld))),
+      })
+      if (clusters.length) params.set('what_or', clusters.join(' '))
+      if (city.trim()) params.set('where', city.trim())
+
+      const res = await fetch(
+        `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/${page}?${params}`,
+        { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) }
+      )
+      if (!res.ok) {
+        return all.length ? { jobs: all, status: 'ok' } : { jobs: [], status: 'error' }
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json: any = await res.json()
+      const rows: unknown[] = Array.isArray(json.results) ? json.results : []
+      for (const row of rows) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const j = row as any
+        const desc: string = j.description ?? ''
+        const area: string[] = Array.isArray(j.location?.area) ? j.location.area : []
+        all.push({
+          id: `ad-${j.id ?? Math.random()}`,
+          title: j.title ?? '',
+          company: j.company?.display_name ?? '',
+          location: j.location?.display_name ?? '',
+          country: canonicalCountry(area[0] ?? ''),
+          remote: /\bremote\b/i.test(`${j.title ?? ''} ${desc}`),
+          jobTypes: j.contract_time ? [String(j.contract_time)] : [],
+          tags: j.category?.label ? [String(j.category.label)] : [],
+          postedAt: j.created ? new Date(j.created).toISOString() : '',
+          url: j.redirect_url ?? '',
+          source: 'adzuna',
+        })
+      }
+      if (rows.length < perPage) break
+    }
+    return { jobs: all, status: 'ok' }
+  } catch {
+    return all.length ? { jobs: all, status: 'ok' } : { jobs: [], status: 'error' }
+  }
 }
