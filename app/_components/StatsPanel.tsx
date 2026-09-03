@@ -11,7 +11,7 @@ import {
   Cell,
 } from 'recharts'
 import { useStore } from '../_lib/store'
-import { JOB_STATUSES, STATUS_LABELS, STATUS_DOT_COLORS, INTERVIEW_TYPE_LABELS, type JobStatus } from '../_lib/types'
+import { JOB_STATUSES, STATUS_LABELS, STATUS_DOT_COLORS, INTERVIEW_TYPE_LABELS, type Interview, type Job, type JobStatus, type TimelineEvent } from '../_lib/types'
 
 const STATUS_HEX: Record<JobStatus, string> = {
   applied: '#3b82f6',
@@ -21,6 +21,45 @@ const STATUS_HEX: Record<JobStatus, string> = {
   offer: '#f59e0b',
   accepted: '#22c55e',
   rejected: '#ef4444',
+}
+
+// Ordered pipeline stages for the funnel. `accepted` / `rejected` are terminal
+// outcomes, not stages — they're reported separately.
+const PIPELINE_STAGES: JobStatus[] = ['applied', 'phone_screen', 'technical_interview', 'onsite', 'offer']
+const STAGE_INDEX: Partial<Record<JobStatus, number>> = Object.fromEntries(
+  PIPELINE_STAGES.map((s, i) => [s, i])
+)
+const LABEL_TO_STATUS: Record<string, JobStatus> = Object.fromEntries(
+  (Object.entries(STATUS_LABELS) as [JobStatus, string][]).map(([s, label]) => [label, s])
+)
+
+// The furthest pipeline stage a job ever reached, reconstructed from its
+// timeline history + current status + any logged interviews. A job rejected
+// after a phone screen still counts as having reached `phone_screen`.
+function furthestStageIndex(
+  job: Job,
+  eventsByJob: Map<string, TimelineEvent[]>,
+  interviewsByJob: Map<string, Interview[]>,
+): number {
+  let idx = 0 // every job has at least "applied"
+
+  const bump = (s: JobStatus | undefined) => {
+    if (s && s in STAGE_INDEX) idx = Math.max(idx, STAGE_INDEX[s]!)
+    if (s === 'accepted') idx = Math.max(idx, STAGE_INDEX.offer!)
+  }
+
+  bump(job.status)
+
+  for (const e of eventsByJob.get(job.id) ?? []) {
+    const m = /^Status updated to (.+)$/.exec(e.title)
+    if (m) bump(LABEL_TO_STATUS[m[1]])
+  }
+
+  for (const iv of interviewsByJob.get(job.id) ?? []) {
+    if (iv.type in STAGE_INDEX) idx = Math.max(idx, STAGE_INDEX[iv.type]!)
+  }
+
+  return idx
 }
 
 
@@ -59,13 +98,24 @@ function StatCard({
 
 function weekKey(date: Date): string {
   const monday = new Date(date)
-  monday.setDate(date.getDate() - ((date.getDay() + 6) % 7))
-  return monday.toISOString().split('T')[0]
+  monday.setHours(0, 0, 0, 0)
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+  const y = monday.getFullYear()
+  const m = String(monday.getMonth() + 1).padStart(2, '0')
+  const d = String(monday.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function formatWeekLabel(isoMonday: string): string {
-  const d = new Date(isoMonday + 'T00:00:00')
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const monday = new Date(isoMonday + 'T00:00:00')
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  const monthMonday = monday.toLocaleDateString('en-US', { month: 'short' })
+  const monthSunday = sunday.toLocaleDateString('en-US', { month: 'short' })
+  if (monthMonday === monthSunday) {
+    return `${monthMonday} ${monday.getDate()}–${sunday.getDate()}`
+  }
+  return `${monthMonday} ${monday.getDate()} – ${monthSunday} ${sunday.getDate()}`
 }
 
 export default function StatsPanel() {
@@ -89,15 +139,36 @@ export default function StatsPanel() {
   ).length
 
   // ── Pipeline funnel ────────────────────────────────────────────────────────
-  const funnelData = JOB_STATUSES.map((s) => ({
+  // Cumulative: each stage counts jobs that EVER reached it, so jobs that were
+  // later rejected still show the progress they made.
+  const eventsByJob = new Map<string, TimelineEvent[]>()
+  for (const e of data.timelineEvents) {
+    const list = eventsByJob.get(e.jobId)
+    if (list) list.push(e)
+    else eventsByJob.set(e.jobId, [e])
+  }
+  const interviewsByJob = new Map<string, Interview[]>()
+  for (const iv of data.interviews) {
+    const list = interviewsByJob.get(iv.jobId)
+    if (list) list.push(iv)
+    else interviewsByJob.set(iv.jobId, [iv])
+  }
+  const jobFurthest = new Map(
+    data.jobs.map((j) => [j.id, furthestStageIndex(j, eventsByJob, interviewsByJob)])
+  )
+
+  const funnelData = PIPELINE_STAGES.map((s, i) => ({
     status: s,
     label: STATUS_LABELS[s],
-    count: data.jobs.filter((j) => j.status === s).length,
+    count: data.jobs.filter((j) => (jobFurthest.get(j.id) ?? 0) >= i).length,
   }))
 
+  const rejectedCount = data.jobs.filter((j) => j.status === 'rejected').length
+  const acceptedCount = data.jobs.filter((j) => j.status === 'accepted').length
+
   function conversionRate(fromStatus: JobStatus, toStatus: JobStatus): string {
-    const from = data.jobs.filter((j) => j.status === fromStatus).length
-    const to = data.jobs.filter((j) => j.status === toStatus).length
+    const from = funnelData.find((d) => d.status === fromStatus)?.count ?? 0
+    const to = funnelData.find((d) => d.status === toStatus)?.count ?? 0
     if (from === 0) return '—'
     return `${Math.round((to / from) * 100)}%`
   }
@@ -223,6 +294,14 @@ export default function StatsPanel() {
             <span>Tech → Onsite: <strong className="text-zinc-600">{conversionRate('technical_interview', 'onsite')}</strong></span>
             <span>Onsite → Offer: <strong className="text-zinc-600">{conversionRate('onsite', 'offer')}</strong></span>
           </div>
+          <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-400">
+            Bars count jobs that <em>ever reached</em> each stage.{' '}
+            <span className="text-zinc-500">
+              Outcomes: <strong className="text-red-500">{rejectedCount}</strong> rejected
+              {' · '}
+              <strong className="text-green-600">{acceptedCount}</strong> accepted
+            </span>
+          </p>
         </div>
 
         {/* Dream Jobs */}
@@ -347,7 +426,7 @@ export default function StatsPanel() {
             <BarChart data={activityData} barSize={24}>
               <XAxis
                 dataKey="week"
-                tick={{ fontSize: 11, fill: '#a1a1aa' }}
+                tick={{ fontSize: 10, fill: '#a1a1aa' }}
                 axisLine={false}
                 tickLine={false}
               />
