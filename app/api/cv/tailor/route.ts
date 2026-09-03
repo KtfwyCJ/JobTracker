@@ -4,32 +4,31 @@ import { join } from 'path'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const SYSTEM_PROMPT = `You are the CV Optimizer: you tailor a candidate's generic LaTeX CV to a specific job description.
+const SKILL_PATH = join(process.cwd(), '.claude', 'skills', 'cv-optimizer', 'SKILL.md')
 
-Core principle: optimize for JD relevance + factual accuracy + natural writing + ATS compatibility. Never optimize for keyword density alone.
+const OUTPUT_FORMAT_ADDENDUM = `---
 
-Rules:
-- Preserve the candidate's factual experience. Never invent experience, technologies, metrics, responsibilities, or achievements not present in the source CV.
-- Reposition truthfully: reframe the candidate's existing experience toward the target role's terminology without changing their actual seniority or claiming an official title they never held.
-- Match the JD's exact terminology and phrases where the candidate's real experience genuinely supports them (e.g. prefer "cross-functional collaboration" over "cross-team coordination" if the JD uses that phrase and it fits).
-- Reorder the Skills section and experience bullets by relevance to this JD; do not delete factual content, just re-prioritize and rephrase.
-- Do not invent metrics. If no metric exists, describe concrete scope instead.
-- Preserve the LaTeX document's structure, commands, macros, fonts, spacing, and visual style exactly. Only change textual content (and ordering of items within existing structures). The output must be valid, compilable LaTeX with no unescaped special characters or broken commands.
-- Do not add extra "-" bullet symbols beyond what the template already uses.
-- Keep it sounding like a human engineer wrote it — no keyword stuffing, no generic AI language.
+# Integration output format
 
-Output format — respond with EXACTLY these five sections, in this order, each starting on its own line with the marker shown (no markdown fences, no extra commentary):
+You are being invoked programmatically, not interactively — there is no user to show intermediate reasoning to and no follow-up turn to ask clarifying questions in. Skip step 1 (the skill normally reads the JD from a URL); the job description is already provided below as structured JSON plus raw text. Skip any step that asks you to ask the user something — if the JD couldn't be reliably retrieved, do the best job you can with what's given rather than stopping.
+
+Apply the full workflow above (Steps 2–19) to produce the optimized LaTeX CV, then respond with EXACTLY these five sections, in this order, each starting on its own line with the marker shown, and nothing else (no markdown fences, no extra commentary before or after):
 
 ===FILENAME===
-<a filesystem-safe .tex filename in the form CV_<Company>_<JobTitle>.tex, spaces replaced with underscores, no special characters>
+<the new CV file name per the skill's naming convention: the original CV name with the job title appended, e.g. CV_Alasco_AI_Engineer.tex — filesystem-safe, spaces replaced with underscores>
 ===SUMMARY===
-<2-4 sentences summarizing the major changes made>
+<a concise summary of the major changes made>
 ===KEYWORDS===
 <comma-separated list of important JD keywords incorporated>
 ===MISSING===
-<comma-separated list of JD requirements that could NOT be added because the CV had no supporting evidence; write "None" if there are none>
+<comma-separated list of JD requirements that could NOT be added because the candidate's CV provided no evidence for them; write "None" if there are none>
 ===TEX===
-<the complete tailored LaTeX document, starting with \\documentclass and ending with \\end{document}>`
+<the complete optimized LaTeX CV, starting with \\documentclass and ending with \\end{document}>`
+
+function loadSystemPrompt(): string {
+  const skill = readFileSync(SKILL_PATH, 'utf-8')
+  return `${skill}\n\n${OUTPUT_FORMAT_ADDENDUM}`
+}
 
 interface TailorRequestBody {
   jd?: {
@@ -80,10 +79,20 @@ export async function POST(request: Request) {
       )
     }
 
+    let systemPrompt: string
+    try {
+      systemPrompt = loadSystemPrompt()
+    } catch {
+      return Response.json(
+        { error: 'cv-optimizer skill not found at .claude/skills/cv-optimizer/SKILL.md.' },
+        { status: 500 },
+      )
+    }
+
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 8192,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{
         role: 'user',
         content: `JOB DESCRIPTION (structured):

@@ -21,6 +21,7 @@ interface StructureResult { title?: string; company?: string; level?: string; lo
 interface TailorResult { tex: string; filename: string; summary: string; keywordsAdded: string[]; missingRequirements: string[] }
 interface MatchResult { strengths?: string[]; gaps?: string[]; summary?: string }
 interface GapsResult { hardGaps?: string[]; softGaps?: string[]; score?: number; verdict?: string }
+interface SalaryResult { currency?: string; period?: string; min?: number; max?: number; median?: number; confidence?: string; rationale?: string; comparables?: string[] }
 interface CoverLetterResult { coverLetter: string }
 interface Suggestion { gap: string; bullet: string }
 interface SuggestionsResult { suggestions: Suggestion[] }
@@ -31,6 +32,7 @@ const INITIAL_STEPS: Step[] = [
   { id: 'tailorCv', label: 'CV Optimizer', status: 'idle', preview: '', error: '' },
   { id: 'match', label: 'CV Matcher', status: 'idle', preview: '', error: '' },
   { id: 'gaps', label: 'Gap Analyzer', status: 'idle', preview: '', error: '' },
+  { id: 'salary', label: 'Salary Estimator', status: 'idle', preview: '', error: '' },
   { id: 'coverLetter', label: 'Cover Letter Generator', status: 'idle', preview: '', error: '' },
 ]
 
@@ -90,6 +92,7 @@ export default function AnalyzePage() {
   const [steps, setSteps] = useState<Step[]>(INITIAL_STEPS)
   const [running, setRunning] = useState(false)
   const [gapsResult, setGapsResult] = useState<GapsResult | null>(null)
+  const [salaryResult, setSalaryResult] = useState<SalaryResult | null>(null)
   const [coverLetter, setCoverLetter] = useState('')
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -149,6 +152,7 @@ export default function AnalyzePage() {
     )
     if (startFrom === 0) {
       setGapsResult(null)
+      setSalaryResult(null)
       setCoverLetter('')
       setExtractRes(null)
       setStructureRes(null)
@@ -212,13 +216,24 @@ export default function AnalyzePage() {
       preview: `Score ${gaps.score}/10 · ${gaps.verdict ?? ''}`,
     })
 
-    // Stage 6: Cover Letter
+    // Stage 6: Salary Estimate
+    const salary = await callStage<SalaryResult>('salary', '/api/jd/salary', { jd: structure })
+    if (!salary) { setRunning(false); setRetryFromIndex(5); return }
+    setSalaryResult(salary)
+    updateStep('salary', {
+      status: 'done',
+      preview: salary.min && salary.max
+        ? `${salary.currency ?? ''} ${salary.min.toLocaleString()}–${salary.max.toLocaleString()} / ${salary.period ?? 'year'}`
+        : 'Estimated',
+    })
+
+    // Stage 7: Cover Letter
     const clResult = await callStage<CoverLetterResult>(
       'coverLetter',
       '/api/cover-letter/generate',
       { jd: structure, match, gaps },
     )
-    if (!clResult) { setRunning(false); setRetryFromIndex(5); return }
+    if (!clResult) { setRunning(false); setRetryFromIndex(6); return }
     setCoverLetter(clResult.coverLetter)
     updateStep('coverLetter', {
       status: 'done',
@@ -232,6 +247,7 @@ export default function AnalyzePage() {
     setUrl('')
     setSteps(INITIAL_STEPS)
     setGapsResult(null)
+    setSalaryResult(null)
     setCoverLetter('')
     setRetryFromIndex(null)
     setExtractRes(null)
@@ -262,6 +278,17 @@ export default function AnalyzePage() {
       lines.push('')
       lines.push('Soft Gaps:')
       gapsResult.softGaps.forEach((g) => lines.push(`• ${g}`))
+    }
+    if (salaryResult?.min && salaryResult?.max) {
+      lines.push('')
+      lines.push(
+        `Expected Salary: ${salaryResult.currency ?? ''} ${salaryResult.min.toLocaleString()}–${salaryResult.max.toLocaleString()} / ${salaryResult.period ?? 'year'}` +
+          (salaryResult.confidence ? ` (confidence: ${salaryResult.confidence})` : ''),
+      )
+      if (salaryResult.rationale) lines.push(salaryResult.rationale)
+      if (salaryResult.comparables?.length) {
+        salaryResult.comparables.forEach((c) => lines.push(`• ${c}`))
+      }
     }
     return lines.join('\n')
   }
@@ -563,6 +590,38 @@ export default function AnalyzePage() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Salary estimate */}
+          {salaryResult && (salaryResult.min !== undefined || salaryResult.rationale) && (
+            <div className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-zinc-700">Expected Salary</p>
+                {salaryResult.confidence && (
+                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] capitalize text-zinc-500">
+                    {salaryResult.confidence} confidence
+                  </span>
+                )}
+              </div>
+              {salaryResult.min !== undefined && salaryResult.max !== undefined && (
+                <p className="mt-1.5 text-2xl font-extrabold text-zinc-900">
+                  {salaryResult.currency ?? ''} {salaryResult.min.toLocaleString()}–{salaryResult.max.toLocaleString()}
+                  <span className="ml-1 text-sm font-medium text-zinc-400">/ {salaryResult.period ?? 'year'}</span>
+                </p>
+              )}
+              {salaryResult.rationale && (
+                <p className="mt-1.5 text-xs leading-relaxed text-zinc-600">{salaryResult.rationale}</p>
+              )}
+              {salaryResult.comparables && salaryResult.comparables.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {salaryResult.comparables.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-zinc-500">
+                      <span className="mt-0.5 text-zinc-300">●</span>{c}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
