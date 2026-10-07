@@ -18,7 +18,7 @@ export interface CompanyJob {
   tags: string[]
   postedAt: string
   url: string
-  source: 'linkedin' | 'indeed' | 'adzuna' | 'greenhouse' | 'ashby' | 'lever' | 'smartrecruiters' | 'personio'
+  source: 'linkedin' | 'indeed' | 'adzuna' | 'greenhouse' | 'ashby' | 'lever' | 'smartrecruiters' | 'personio' | 'pinpoint'
   myPriority: string
   category: string
   industry: string
@@ -39,7 +39,7 @@ interface CacheEntry {
   searchedAt: number
 }
 
-const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Frontend Engineer', 'Frontend', 'Front End', 'Front-end', 'AI Application Developer', 'AI Developer', 'Machine Learning Engineer', 'ML Engineer', 'Fullstack Engineer', 'Full Stack Engineer', 'Full-stack Engineer', 'Fullstack Developer']
+const DEFAULT_KEYWORDS = ['Software Engineer', 'AI Engineer', 'Frontend Engineer', 'AI', 'Software', 'Front', 'Full']
 const TIER_CONCURRENCY = 3
 
 export default function CompanyJobExplorer({ onApply }: { onApply: (p: ApplyPrefill) => void }) {

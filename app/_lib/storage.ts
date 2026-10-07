@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { AppData } from './types'
 
-const STORAGE_KEY = 'job-tracker-data'
+export const STORAGE_KEY = 'job-tracker-data'
 
 const DEFAULT_DATA: AppData = {
   companies: [],

@@ -22,6 +22,7 @@ export interface JobPosting {
     | 'lever'
     | 'smartrecruiters'
     | 'personio'
+    | 'pinpoint'
 }
 
 export type SourceStatus = 'ok' | 'no_keys' | 'no_country' | 'blocked' | 'error'

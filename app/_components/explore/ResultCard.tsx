@@ -12,6 +12,7 @@ const SOURCE_BADGE: Record<string, string> = {
   lever: 'bg-orange-100 text-orange-700',
   smartrecruiters: 'bg-sky-100 text-sky-700',
   personio: 'bg-rose-100 text-rose-700',
+  pinpoint: 'bg-violet-100 text-violet-700',
 }
 
 const PRIORITY_BADGE: Record<string, string> = {

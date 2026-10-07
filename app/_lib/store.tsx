@@ -30,7 +30,7 @@ import type {
   TimelineEvent,
   WaitlistEntry,
 } from './types'
-import { loadData, saveData } from './storage'
+import { loadData, saveData, STORAGE_KEY } from './storage'
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -721,7 +721,7 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [data, dispatch] = useReducer(reducer, {
+  const [data, rawDispatch] = useReducer(reducer, {
     companies: [],
     jobs: [],
     timelineEvents: [],
@@ -737,33 +737,65 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [search, setSearch] = useState<string>('')
   const [starFilter, setStarFilter] = useState<number | null>(null)
-  const hydrated = useRef(false)
+  const [hydrated, setHydrated] = useState(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Tracks whether the user made any edit before the authoritative file fetch
+  // below resolved, so that fetch doesn't clobber it with stale data.
+  const editedDuringHydrationRef = useRef(false)
+  // Set when state was replaced by another tab's write, so we don't re-save it.
+  const skipNextSaveRef = useRef(false)
+
+  function dispatch(action: Action) {
+    if (action.type !== 'LOAD') editedDuringHydrationRef.current = true
+    rawDispatch(action)
+  }
 
   useEffect(() => {
     // Show localStorage data immediately so the UI is never blank
-    dispatch({ type: 'LOAD', payload: loadData() })
+    rawDispatch({ type: 'LOAD', payload: loadData() })
 
     // Then fetch the authoritative file-based data
     fetch('/api/data')
       .then(r => r.ok ? r.json() : null)
       .then((fileData: AppData | null) => {
         // Only overwrite localStorage data if the file actually exists (r.ok)
-        // A 404 means first run — keep localStorage as-is
-        if (fileData !== null) {
-          dispatch({ type: 'LOAD', payload: fileData })
+        // A 404 means first run — keep localStorage as-is.
+        // If the user already made edits while this fetch was in flight,
+        // trust those edits instead of stomping them with stale file data.
+        if (fileData !== null && !editedDuringHydrationRef.current) {
+          rawDispatch({ type: 'LOAD', payload: fileData })
         }
       })
       .catch(() => {
         // Server unavailable — localStorage data is already loaded
       })
       .finally(() => {
-        hydrated.current = true
+        setHydrated(true)
       })
   }, [])
 
+  // Keep multiple open tabs in sync. Each tab holds its own in-memory copy and
+  // persists the whole thing on every change, so without this a save in one tab
+  // overwrites records another tab saved since this one loaded.
   useEffect(() => {
-    if (!hydrated.current) return
+    function onStorage(e: StorageEvent) {
+      if (e.key !== STORAGE_KEY || e.newValue === null) return
+      // Data in localStorage is now newer than the file fetched at startup.
+      editedDuringHydrationRef.current = true
+      // The other tab already persisted this; don't echo it back.
+      skipNextSaveRef.current = true
+      rawDispatch({ type: 'LOAD', payload: loadData() })
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false
+      return
+    }
 
     saveData(data)
 
@@ -775,7 +807,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(data),
       }).catch(err => console.error('[backup] Failed to sync data.json:', err))
     }, 500)
-  }, [data])
+  }, [data, hydrated])
 
   function addJob(payload: JobFields) {
     dispatch({ type: 'ADD_JOB', payload })

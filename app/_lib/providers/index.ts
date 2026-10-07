@@ -5,10 +5,11 @@ import ashby from './ashby'
 import lever from './lever'
 import smartrecruiters from './smartrecruiters'
 import personio from './personio'
+import pinpoint from './pinpoint'
 
 export type { AtsMapping, AtsPlatform, Provider }
 
-const PROVIDERS: Provider[] = [greenhouse, ashby, lever, smartrecruiters, personio]
+const PROVIDERS: Provider[] = [greenhouse, ashby, lever, smartrecruiters, personio, pinpoint]
 
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'

@@ -1,6 +1,6 @@
 import type { JobPosting } from '../jobSearch'
 
-export type AtsPlatform = 'greenhouse' | 'ashby' | 'lever' | 'smartrecruiters' | 'personio' | 'workday'
+export type AtsPlatform = 'greenhouse' | 'ashby' | 'lever' | 'smartrecruiters' | 'personio' | 'pinpoint' | 'workday'
 
 export interface AtsMapping {
   platform: AtsPlatform
