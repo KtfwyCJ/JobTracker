@@ -26,9 +26,14 @@ function boldText(text: string, terms: string[]): string {
   return out + escapeLatex(text.slice(pos))
 }
 
-const summaryTex = (s: string) => escapeLatex(s).replace(/\*\*(.+?)\*\*/g, '\\textbf{$1}')
+/** Escape text that may carry `**x**` bold markup (summary, education notes, research and interest text). */
+const markupTex = (s: string) => escapeLatex(s).replace(/\*\*(.+?)\*\*/g, '\\textbf{$1}')
 
-const href = (url: string, display: string) => `\\href{${url}}{${escapeLatex(display)}}`
+/** Escape a URL for hyperref's \href: braces/backslash are percent-encoded, then `%` and `#` are backslash-escaped. */
+export const escapeHrefUrl = (url: string): string =>
+  url.replace(/[\\{}]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()).replace(/[%#]/g, c => '\\' + c)
+
+const href = (url: string, display: string) => `\\href{${escapeHrefUrl(url)}}{${escapeLatex(display)}}`
 const webUrl = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`)
 
 function contactTex(c: Evidence['contact']): string {
@@ -53,7 +58,11 @@ const itemize = (items: string[]) =>
 const header = (top: string, topRight: string, sub: string, subRight: string) =>
   `\\noindent\\textbf{${escapeLatex(top)}}\\hfill\\textit{${escapeLatex(topRight)}}\\\\\n` +
   `{\\scshape\\small ${escapeLatex(sub)}}\\hfill{\\small\\itshape ${escapeLatex(subRight)}}`
-const table = (rows: string[]) => `\\begin{tabular}{@{}l@{\\quad}l@{}}\n${rows.map(r => r + ' \\\\').join('\n')}\n\\end{tabular}`
+/** Column spec for label/value tables: label at natural width, value column fills the line and wraps. */
+export const TABLE_COLSPEC = '@{}l@{\\quad}>{\\raggedright\\arraybackslash}X@{}'
+/** Two-column label/value table (skills, languages, interests); rows are [label, value] TeX. */
+const table = (rows: [string, string][]) =>
+  `\\begin{tabularx}{\\linewidth}{${TABLE_COLSPEC}}\n${rows.map(([l, v]) => `${l} & ${v} \\\\`).join('\n')}\n\\end{tabularx}`
 
 export function renderTex(ev: Evidence, plan: Plan): string {
   const profile = ev.profiles.find(p => p.id === plan.profile)
@@ -72,16 +81,16 @@ export function renderTex(ev: Evidence, plan: Plan): string {
   }
 
   const eduBlocks = ev.education.map(e =>
-    header(e.school, e.location, e.degree, e.dates) + (e.notes.length ? '\n' + itemize(e.notes.map(n => summaryTex(n))) : ''))
+    header(e.school, e.location, e.degree, e.dates) + (e.notes.length ? '\n' + itemize(e.notes.map(n => markupTex(n))) : ''))
 
   const resBlocks = ev.research.map(r =>
     `\\begin{tabular*}{\\linewidth}{@{}l@{\\extracolsep{\\fill}}r@{}}\n\\textbf{${escapeLatex(r.title)}} & \\textit{${escapeLatex(r.venue)}} \\\\\n\\end{tabular*}\n` +
-    `\\textbf{Topic: ${escapeLatex(r.topic)}} \\\\\n${escapeLatex(r.text)}`)
+    `\\textbf{Topic: ${escapeLatex(r.topic)}} \\\\\n${markupTex(r.text)}`)
 
-  const skillRows: string[] = []
+  const skillRows: [string, string][] = []
   for (const sg of plan.skillGroups) {
     const g = ev.skillGroups.find(x => x.id === sg.groupId)
-    if (g) skillRows.push(`\\textbf{${escapeLatex(g.label)}}: ${sg.items.map(escapeLatex).join(', ')}`)
+    if (g) skillRows.push([`\\textbf{${escapeLatex(g.label)}}:`, sg.items.map(escapeLatex).join(', ')])
   }
 
   const slots: Record<string, string> = {
@@ -89,13 +98,13 @@ export function renderTex(ev: Evidence, plan: Plan): string {
     TITLE: escapeLatex(profile?.title ?? ''),
     LOCATION: escapeLatex(ev.contact.location),
     CONTACT: contactTex(ev.contact),
-    SUMMARY: profile?.summary ? section('Summary', summaryTex(profile.summary), false) : '',
+    SUMMARY: profile?.summary ? section('Summary', markupTex(profile.summary), false) : '',
     EXPERIENCE: expBlocks.length ? section('Work Experience', expBlocks.join('\n\n\\vspace{4pt}\n')) : '',
     EDUCATION: eduBlocks.length ? section('Education', eduBlocks.join('\n\n')) : '',
     RESEARCH: resBlocks.length ? section('Research Activity', '\\vspace{4pt}\n' + resBlocks.join('\n\n'), false) : '',
     SKILLS: skillRows.length ? section('Skills', table(skillRows)) : '',
-    LANGUAGES: ev.languages.length ? section('Languages', table(ev.languages.map(l => `\\textbf{${escapeLatex(l.name)}:} ${escapeLatex(l.level)}`))) : '',
-    INTERESTS: ev.interests.length ? section('Interests', table(ev.interests.map(i => `\\textbf{${escapeLatex(i.name)}:} ${escapeLatex(i.text)}`))) : '',
+    LANGUAGES: ev.languages.length ? section('Languages', table(ev.languages.map(l => [`\\textbf{${escapeLatex(l.name)}:}`, escapeLatex(l.level)]))) : '',
+    INTERESTS: ev.interests.length ? section('Interests', table(ev.interests.map(i => [`\\textbf{${escapeLatex(i.name)}:}`, markupTex(i.text)]))) : '',
   }
   return tpl.replace(/%%([A-Z]+)%%/g, (_, k: string) => slots[k] ?? '')
 }
@@ -119,12 +128,12 @@ export function renderPlainText(ev: Evidence, plan: Plan): string {
     lines.push(`${e.school}, ${e.location} - ${e.degree} (${e.dates})`)
     for (const n of e.notes) lines.push(stripBold(n))
   }
-  for (const r of ev.research) lines.push(`${r.title} (${r.venue}) Topic: ${r.topic}. ${r.text}`)
+  for (const r of ev.research) lines.push(`${r.title} (${r.venue}) Topic: ${r.topic}. ${stripBold(r.text)}`)
   for (const sg of plan.skillGroups) {
     const g = ev.skillGroups.find(x => x.id === sg.groupId)
     if (g) lines.push(`${g.label}: ${sg.items.join(', ')}`)
   }
   for (const l of ev.languages) lines.push(`${l.name}: ${l.level}`)
-  for (const i of ev.interests) lines.push(`${i.name}: ${i.text}`)
+  for (const i of ev.interests) lines.push(`${i.name}: ${stripBold(i.text)}`)
   return lines.filter(l => l !== '').join('\n')
 }

@@ -5,11 +5,11 @@ import { join } from 'node:path'
 import { parseEvidence } from '../evidence'
 import { buildBasePlan } from '../base'
 import { diffPlans, normalizePlan } from '../suggestions'
-import { MAX_PAGE_FILL } from '../compile'
+import { MAX_PAGE_FILL, parsePageFill } from '../compile'
 import type { JdAnalysis, LlmPlan } from '../types'
 import {
   makeVersionId, versionDir, createVersion, readVersionView, updateVersion, finalizeVersion, rebuild,
-  VersionIdError, VersionFrozenError, VersionNotFoundError, FinalizeNotAllowedError,
+  VersionIdError, VersionFrozenError, VersionNotFoundError, FinalizeNotAllowedError, PlanInvalidError,
 } from '../versions'
 
 const yamlText = readFileSync(join(__dirname, '../__fixtures__/evidence.yaml'), 'utf8')
@@ -26,13 +26,14 @@ const llmPlan: LlmPlan = {
 }
 let fill: number | null = 1.0
 let fail = false
+let warnings: string[] = []
 const compile = async (tex: string, dir: string) => {
   if (fail) throw new Error('boom')
   void tex
-  return { pdfPath: join(dir, 'cv.pdf'), pageFill: fill }
+  return { pdfPath: join(dir, 'cv.pdf'), pageFill: fill, warnings }
 }
 let root: string
-beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'rv-')); fill = 1.0; fail = false })
+beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'rv-')); fill = 1.0; fail = false; warnings = [] })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 const mk = () => createVersion({ jd, llmPlan }, yamlText, root, { compile })
 
@@ -112,5 +113,64 @@ describe('store', () => {
     }
     await Promise.all([[], ['order:acme'], []].map((a) => updateVersion(id, { accepted: a }, root, { compile: slow })))
     expect(maxActive).toBe(1)
+  })
+})
+
+describe('finalize gates', () => {
+  it('layout warnings block finalize and are exposed on the view', async () => {
+    warnings = ['Overfull hbox 211.0pt in alignment at lines 96--103']
+    const id = await mk()
+    const v = readVersionView(id, root)
+    expect(v.layoutWarnings).toEqual(warnings)
+    expect(v.pageFill).toBe(1.0)
+    expect(v.canFinalize).toBe(false)
+    await expect(finalizeVersion(id, root)).rejects.toThrow(/Overfull hbox 211.0pt/)
+    warnings = []
+    await updateVersion(id, { accepted: [] }, root, { compile })
+    expect(readVersionView(id, root).canFinalize).toBe(true)
+  })
+  it('unrounded fill just over the limit (~1.504) blocks finalize', async () => {
+    const h = 845.04684, M = 0.6 * 72.27
+    const ySp = Math.round((h - M - 0.504 * (h - 2 * M)) * 65536)
+    fill = parsePageFill(`\\resumeend{2}{${ySp}}{${h}pt}`)
+    expect(fill!).toBeGreaterThan(MAX_PAGE_FILL)
+    expect(fill!).toBeCloseTo(1.504, 3)
+    const id = await mk()
+    expect(readVersionView(id, root).canFinalize).toBe(false)
+    await expect(finalizeVersion(id, root)).rejects.toBeInstanceOf(FinalizeNotAllowedError)
+  })
+  it('interrupted compile after an update leaves pageFill null and canFinalize false', async () => {
+    const id = await mk()
+    expect(readVersionView(id, root).canFinalize).toBe(true)
+    let started!: () => void
+    const startedP = new Promise<void>((r) => { started = r })
+    let release!: () => void
+    const hang = (_t: string, d: string) => {
+      started()
+      return new Promise<{ pdfPath: string; pageFill: number; warnings: string[] }>((r) => {
+        release = () => r({ pdfPath: join(d, 'cv.pdf'), pageFill: 1, warnings: [] })
+      })
+    }
+    const pending = updateVersion(id, { accepted: [] }, root, { compile: hang })
+    await startedP
+    const mid = readVersionView(id, root)
+    expect(mid.pageFill).toBeNull()
+    expect(mid.compileError).toBeUndefined()
+    expect(mid.layoutWarnings).toEqual([])
+    expect(mid.canFinalize).toBe(false)
+    release()
+    await pending
+    expect(readVersionView(id, root).canFinalize).toBe(true)
+  })
+  it('rejects an invalid llmPlan on create and on update', async () => {
+    const bad = { ...llmPlan, experiences: llmPlan.experiences.slice(0, 1) }
+    await expect(createVersion({ jd, llmPlan: bad }, yamlText, root, { compile })).rejects.toBeInstanceOf(PlanInvalidError)
+    const id = await mk()
+    await expect(updateVersion(id, { llmPlan: bad }, root, { compile })).rejects.toBeInstanceOf(PlanInvalidError)
+  })
+  it('createVersion keeps only accepted ids that exist', async () => {
+    const all = diffPlans(ev, buildBasePlan(ev, 'senior-fullstack'), llmPlan).map((s) => s.id)
+    const id = await createVersion({ jd, llmPlan, accepted: [all[0], 'gone:xyz'] }, yamlText, root, { compile })
+    expect(readVersionView(id, root).accepted).toEqual([all[0]])
   })
 })

@@ -1,5 +1,5 @@
 import {
-  FinalizeNotAllowedError, VersionFrozenError, VersionIdError, VersionNotFoundError,
+  FinalizeNotAllowedError, PlanInvalidError, VersionFrozenError, VersionIdError, VersionNotFoundError,
 } from '../../_lib/resume/versions'
 
 export type RouteCtx = { params: Promise<{ id: string }> }
@@ -8,6 +8,7 @@ export function errorResponse(e: unknown): Response {
   if (e instanceof VersionIdError) return Response.json({ error: e.message }, { status: 400 })
   if (e instanceof VersionNotFoundError) return Response.json({ error: e.message }, { status: 404 })
   if (e instanceof VersionFrozenError) return Response.json({ error: e.message }, { status: 409 })
+  if (e instanceof PlanInvalidError) return Response.json({ error: 'Invalid plan', errors: e.errors }, { status: 422 })
   if (e instanceof FinalizeNotAllowedError)
     return Response.json({ error: e.message, validationErrors: e.validationErrors, pageFill: e.pageFill }, { status: 422 })
   console.error('[resume api]', e)

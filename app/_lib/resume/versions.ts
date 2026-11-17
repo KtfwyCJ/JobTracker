@@ -14,8 +14,11 @@ export interface ResumeVersion {
   id: string; createdAt: string; status: 'draft' | 'final'; finalizedAt?: string
   jobUrl?: string; jd: JdAnalysis; jobText?: string; analysis?: string; gapsScore?: number
   llmPlan: LlmPlan; accepted: string[]; pageFill: number | null; compileError?: string
+  /** Overfull-box warnings (> 2pt) from the last compile; any warning blocks finalize. */
+  layoutWarnings?: string[]
 }
 export interface VersionView extends ResumeVersion {
+  layoutWarnings: string[]
   base: Plan; current: Plan; suggestions: Suggestion[]; validationErrors: string[]
   diff: ReturnType<typeof displayDiff>; coverageBase: Coverage; coverageFinal: Coverage
   gaps: ReturnType<typeof evidenceGaps>; canFinalize: boolean
@@ -24,6 +27,9 @@ export interface VersionView extends ResumeVersion {
 export class VersionIdError extends Error {}
 export class VersionNotFoundError extends Error {}
 export class VersionFrozenError extends Error {}
+export class PlanInvalidError extends Error {
+  constructor(readonly errors: string[]) { super(`Invalid plan:\n- ${errors.join('\n- ')}`) }
+}
 export class FinalizeNotAllowedError extends Error {
   constructor(message: string, readonly validationErrors: string[] = [], readonly pageFill: number | null = null) { super(message) }
 }
@@ -63,8 +69,18 @@ function writeVersion(v: ResumeVersion, root: string) {
 }
 const readSnapshot = (id: string, root: string): Evidence => parseEvidence(fs.readFileSync(snapshotPath(id, root), 'utf8'))
 
-// ---- per-id in-process lock ----
-const locks = new Map<string, Promise<unknown>>()
+/** Raw stored version (no derived fields). */
+export const readVersionRecord = (id: string, root = VERSIONS_ROOT): ResumeVersion => readVersion(id, root)
+
+/** Defence in depth: every stored llmPlan must pass the validator against its evidence. */
+function assertValidLlmPlan(plan: LlmPlan, ev: Evidence) {
+  const r = validatePlan(plan, ev, { requireLlmFields: true })
+  if (!r.ok) throw new PlanInvalidError(r.errors)
+}
+
+// ---- per-id in-process lock (on globalThis so HMR / duplicate module instances share it) ----
+const g = globalThis as typeof globalThis & { __resumeLocks?: Map<string, Promise<unknown>> }
+const locks = (g.__resumeLocks ??= new Map<string, Promise<unknown>>())
 function withLock<T>(id: string, fn: () => Promise<T>): Promise<T> {
   const run = (locks.get(id) ?? Promise.resolve()).then(fn, fn)
   const tail = run.catch(() => undefined)
@@ -90,9 +106,11 @@ async function rebuildLocked(id: string, root: string, deps?: VersionDeps): Prom
   try {
     const r = await (deps?.compile ?? compileTex)(renderTex(ev, current), dir)
     v.pageFill = r.pageFill
+    v.layoutWarnings = r.warnings
     delete v.compileError
   } catch (e) {
     v.pageFill = null
+    v.layoutWarnings = []
     v.compileError = e instanceof Error ? e.message : String(e)
     fs.rmSync(path.join(dir, 'cv.pdf'), { force: true })
   }
@@ -102,22 +120,41 @@ async function rebuildLocked(id: string, root: string, deps?: VersionDeps): Prom
 export const rebuild = (id: string, root = VERSIONS_ROOT, deps?: VersionDeps) =>
   withLock(id, () => rebuildLocked(id, root, deps))
 
+/** Create a fresh version dir; the leaf mkdir is non-recursive so an id collision throws instead of overwriting. */
+function makeVersionDir(jd: JdAnalysis, root: string): string {
+  fs.mkdirSync(root, { recursive: true })
+  for (let attempt = 0; ; attempt++) {
+    const id = makeVersionId(jd.company, jd.title)
+    try {
+      fs.mkdirSync(versionDir(id, root))
+      return id
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'EEXIST' || attempt >= 1) throw e
+    }
+  }
+}
+
 export async function createVersion(
-  input: { jd: JdAnalysis; jobUrl?: string; jobText?: string; analysis?: string; gapsScore?: number; llmPlan: LlmPlan },
+  input: {
+    jd: JdAnalysis; jobUrl?: string; jobText?: string; analysis?: string; gapsScore?: number; llmPlan: LlmPlan
+    /** Suggestion ids to accept; ids not among the plan's suggestions are ignored. Default: all. */
+    accepted?: string[]
+  },
   evidenceYaml: string,
   root = VERSIONS_ROOT,
   deps?: VersionDeps,
 ): Promise<string> {
   const ev = parseEvidence(evidenceYaml)
-  const id = makeVersionId(input.jd.company, input.jd.title)
-  const dir = versionDir(id, root)
-  fs.mkdirSync(dir, { recursive: true })
+  assertValidLlmPlan(input.llmPlan, ev)
+  const id = makeVersionDir(input.jd, root)
   fs.writeFileSync(snapshotPath(id, root), evidenceYaml)
   const base = buildBasePlan(ev, input.llmPlan.profile)
   const { jd, jobUrl, jobText, analysis, gapsScore, llmPlan } = input
+  const all = diffPlans(ev, base, llmPlan).map((s) => s.id)
+  const accepted = input.accepted ? all.filter((s) => input.accepted!.includes(s)) : all
   writeVersion({
     id, createdAt: new Date().toISOString(), status: 'draft', jobUrl, jd, jobText, analysis, gapsScore, llmPlan,
-    accepted: diffPlans(ev, base, llmPlan).map((s) => s.id), pageFill: null,
+    accepted, pageFill: null, layoutWarnings: [],
   }, root)
   await rebuild(id, root, deps)
   return id
@@ -127,9 +164,11 @@ export function readVersionView(id: string, root = VERSIONS_ROOT): VersionView {
   const v = readVersion(id, root)
   const ev = readSnapshot(id, root)
   const { base, current, validationErrors } = compute(v, ev)
-  const canFinalize = validationErrors.length === 0 && !v.compileError && v.pageFill !== null && v.pageFill <= MAX_PAGE_FILL
+  const layoutWarnings = v.layoutWarnings ?? []
+  const canFinalize = validationErrors.length === 0 && !v.compileError && layoutWarnings.length === 0 &&
+    v.pageFill !== null && v.pageFill <= MAX_PAGE_FILL
   return {
-    ...v, base, current, validationErrors, canFinalize,
+    ...v, layoutWarnings, base, current, validationErrors, canFinalize,
     suggestions: diffPlans(ev, base, v.llmPlan),
     diff: displayDiff(ev, base, current),
     coverageBase: computeCoverage(v.jd, renderPlainText(ev, base), ev.aliases),
@@ -153,12 +192,20 @@ export function updateVersion(
     let needsRebuild = false
     if (patch.llmPlan) {
       const ev = readSnapshot(id, root)
+      assertValidLlmPlan(patch.llmPlan, ev)
       v.llmPlan = patch.llmPlan
       v.accepted = diffPlans(ev, buildBasePlan(ev, patch.llmPlan.profile), patch.llmPlan).map((s) => s.id)
       needsRebuild = true
     } else if (patch.accepted) {
       v.accepted = [...patch.accepted]
       needsRebuild = true
+    }
+    if (needsRebuild) {
+      // The stored measurement belongs to the old plan; clear it so an interrupted compile can't leave
+      // canFinalize true for an unmeasured plan.
+      v.pageFill = null
+      v.layoutWarnings = []
+      delete v.compileError
     }
     writeVersion(v, root)
     if (needsRebuild) await rebuildLocked(id, root, deps)
@@ -173,7 +220,9 @@ export function finalizeVersion(id: string, root = VERSIONS_ROOT): Promise<void>
     const view = readVersionView(id, root)
     if (!view.canFinalize) {
       throw new FinalizeNotAllowedError(
-        view.compileError ?? (view.validationErrors.length ? 'Plan has validation errors' : 'Page fill exceeds limit or is unknown'),
+        view.compileError ?? (view.validationErrors.length ? 'Plan has validation errors'
+          : view.layoutWarnings.length ? `Layout overflows the page: ${view.layoutWarnings.join('; ')}`
+            : 'Page fill exceeds limit or is unknown'),
         view.validationErrors, view.pageFill)
     }
     v.status = 'final'

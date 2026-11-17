@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseEvidence } from '../evidence'
 import { buildBasePlan } from '../base'
-import { escapeLatex, renderTex, renderPlainText } from '../render'
+import { escapeLatex, escapeHrefUrl, renderTex, renderPlainText, TABLE_COLSPEC } from '../render'
 import { findTermSpan } from '../coverage'
 import type { Plan } from '../types'
 
@@ -99,5 +99,35 @@ describe('renderTex extras', () => {
     for (const n of ['Work Experience', 'Education', 'Skills', 'Languages', 'Interests'])
       expect(t).toContain('\\vspace{6pt}\n\n\\cvsection{' + n + '}')
     expect(t).not.toContain('\\vspace{6pt}\n\n\\cvsection{Research')
+  })
+})
+
+describe('renderTex wrapping tables and markup', () => {
+  it('skills, languages and interests use a wrapping tabularx value column', () => {
+    expect(TABLE_COLSPEC).toBe('@{}l@{\\quad}>{\\raggedright\\arraybackslash}X@{}')
+    const t = renderTex(ev, plan)
+    expect(t).toContain('\\usepackage{tabularx}')
+    const tables = t.match(/\\begin\{tabularx\}\{\\linewidth\}\{([^\n]*)\}\n/g) ?? []
+    expect(tables.length).toBe(3)
+    for (const x of tables) expect(x).toBe(`\\begin{tabularx}{\\linewidth}{${TABLE_COLSPEC}}\n`)
+    expect(t).not.toContain('\\begin{tabular}{@{}l@{\\quad}l@{}}')
+    expect(t).toMatch(/\\textbf\{Frontend\}: & Vue\.js, React \\\\/)
+  })
+  it('supports **bold** in research and interest text, stripped in plain text', () => {
+    const e = { ...ev,
+      research: ev.research.map(r => ({ ...r, text: 'Compared **prompting, fine-tuning** 5%' })),
+      interests: ev.interests.map(i => ({ ...i, text: 'Love **mountains** & lakes' })) }
+    const t = renderTex(e, plan)
+    expect(t).toContain('Compared \\textbf{prompting, fine-tuning} 5\\%')
+    expect(t).toContain('Love \\textbf{mountains} \\& lakes')
+    const p = renderPlainText(e, plan)
+    expect(p).toContain('Compared prompting, fine-tuning 5%')
+    expect(p).not.toContain('**')
+  })
+  it('escapes href URLs', () => {
+    expect(escapeHrefUrl('https://x.dev/a%20b#f?q=1&r=a_b~c')).toBe('https://x.dev/a\\%20b\\#f?q=1&r=a_b~c')
+    expect(escapeHrefUrl('https://x.dev/{a}\\b')).toBe('https://x.dev/\\%7Ba\\%7D\\%5Cb')
+    const e = { ...ev, contact: { ...ev.contact, website: 'x.dev/p#me' } }
+    expect(renderTex(e, plan)).toContain('\\href{https://x.dev/p\\#me}{x.dev/p\\#me}')
   })
 })
