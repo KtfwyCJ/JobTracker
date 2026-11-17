@@ -29,7 +29,7 @@ function boldText(text: string, terms: string[]): string {
 const summaryTex = (s: string) => escapeLatex(s).replace(/\*\*(.+?)\*\*/g, '\\textbf{$1}')
 
 const href = (url: string, display: string) => `\\href{${url}}{${escapeLatex(display)}}`
-const webUrl = (v: string) => (/http/i.test(v) ? v : `https://${v}`)
+const webUrl = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`)
 
 function contactTex(c: Evidence['contact']): string {
   const parts: string[] = []
@@ -45,7 +45,7 @@ function nameTex(name: string): string {
   return rest.length ? `${head}%\n  {\\fontsize{38}{46}\\bfseries ${escapeLatex(rest.join(' '))}}` : head
 }
 
-const section = (title: string, body: string) => `\\cvsection{${title}}\n${body}`
+const section = (title: string, body: string, gap = true) => `${gap ? '\\vspace{6pt}\n\n' : ''}\\cvsection{${title}}\n${body}`
 const itemize = (items: string[]) =>
   items.length
     ? `\\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt,parsep=0pt]\n${items.map(i => `  \\item ${i}\n`).join('\n')}\\end{itemize}`
@@ -89,10 +89,10 @@ export function renderTex(ev: Evidence, plan: Plan): string {
     TITLE: escapeLatex(profile?.title ?? ''),
     LOCATION: escapeLatex(ev.contact.location),
     CONTACT: contactTex(ev.contact),
-    SUMMARY: profile?.summary ? section('Summary', summaryTex(profile.summary)) : '',
+    SUMMARY: profile?.summary ? section('Summary', summaryTex(profile.summary), false) : '',
     EXPERIENCE: expBlocks.length ? section('Work Experience', expBlocks.join('\n\n\\vspace{4pt}\n')) : '',
     EDUCATION: eduBlocks.length ? section('Education', eduBlocks.join('\n\n')) : '',
-    RESEARCH: resBlocks.length ? section('Research Activity', '\\vspace{4pt}\n' + resBlocks.join('\n\n')) : '',
+    RESEARCH: resBlocks.length ? section('Research Activity', '\\vspace{4pt}\n' + resBlocks.join('\n\n'), false) : '',
     SKILLS: skillRows.length ? section('Skills', table(skillRows)) : '',
     LANGUAGES: ev.languages.length ? section('Languages', table(ev.languages.map(l => `\\textbf{${escapeLatex(l.name)}:} ${escapeLatex(l.level)}`))) : '',
     INTERESTS: ev.interests.length ? section('Interests', table(ev.interests.map(i => `\\textbf{${escapeLatex(i.name)}:} ${escapeLatex(i.text)}`))) : '',

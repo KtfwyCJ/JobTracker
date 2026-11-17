@@ -39,7 +39,8 @@ describe('renderTex', () => {
     expect(tex).not.toContain('%%')
     expect(tex.split('\\textbf{Node.js}').length - 1).toBe(1)
     expect(tex).toContain('\\textbf{50\\%}')
-    expect(tex).toContain('\\resumeend')
+    expect(tex).toContain('\\makeatletter\n\\pdfsavepos\\write\\@auxout{\\string\\resumeend{\\thepage}{\\the\\pdflastypos}{\\the\\paperheight}}\n\\makeatother\n\\end{document}')
+    expect(tex).toContain('\\providecommand{\\resumeend}[3]{}')
   })
   it('keeps plan bullet order and omits unselected', () => {
     expect(tex.indexOf('Cut page load')).toBeLessThan(tex.indexOf('Built a '))
@@ -64,5 +65,39 @@ describe('renderPlainText', () => {
     const t = renderPlainText(ev, buildBasePlan(ev, 'senior-frontend'))
     expect(t).toContain('50%')
     expect(t).not.toContain('\\%')
+  })
+})
+
+describe('renderTex extras', () => {
+  const nasty = parseEvidence(readFileSync(join(__dirname, '../__fixtures__/evidence.yaml'), 'utf8'))
+  it('escapes non-bullet fields', () => {
+    nasty.experiences[0].company = 'R&D_Co 50%'
+    nasty.experiences[0].role = 'C# Dev'
+    nasty.profiles[1].summary = 'Fast & **big_win** 5%'
+    nasty.skillGroups[0].items = ['C#', 'a_b']
+    nasty.interests[0].text = 'R&D $'
+    nasty.research[0].title = 'T#1'
+    const p: Plan = { ...plan, skillGroups: [{ groupId: 'lang', items: ['C#', 'a_b'] }] }
+    const t = renderTex(nasty, p)
+    for (const s of ['R\\&D\\_Co 50\\%', 'C\\# Dev', 'Fast \\& \\textbf{big\\_win} 5\\%', 'C\\#, a\\_b', 'R\\&D \\$', 'T\\#1'])
+      expect(t).toContain(s)
+  })
+  it('prefixes https only for non-URL contact values', () => {
+    const e = { ...ev, contact: { ...ev.contact, github: 'github.com/httpie', linkedin: 'https://linkedin.com/in/x', website: 'x.dev' } }
+    const t = renderTex(e, plan)
+    expect(t).toContain('\\href{https://github.com/httpie}{github.com/httpie}')
+    expect(t).toContain('\\href{https://linkedin.com/in/x}{https://linkedin.com/in/x}')
+    expect(t).toContain('\\href{https://x.dev}{x.dev}')
+  })
+  it('omits empty sections without dangling vspace', () => {
+    const t = renderTex({ ...ev, education: [], skillGroups: [], languages: [], interests: [] }, { ...plan, skillGroups: [] })
+    for (const n of ['Education', 'Skills}', 'Languages}', 'Interests']) expect(t).not.toContain('\\cvsection{' + n.replace('}', ''))
+    expect((t.match(/\\vspace\{6pt\}/g) ?? []).length).toBe(1)
+  })
+  it('keeps CV.tex 6pt spacing before sections', () => {
+    const t = renderTex(ev, plan)
+    for (const n of ['Work Experience', 'Education', 'Skills', 'Languages', 'Interests'])
+      expect(t).toContain('\\vspace{6pt}\n\n\\cvsection{' + n + '}')
+    expect(t).not.toContain('\\vspace{6pt}\n\n\\cvsection{Research')
   })
 })
