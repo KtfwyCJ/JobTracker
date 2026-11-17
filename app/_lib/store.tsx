@@ -30,7 +30,7 @@ import type {
   TimelineEvent,
   WaitlistEntry,
 } from './types'
-import { loadData, saveData, STORAGE_KEY } from './storage'
+import { getSyncChannel, loadData, saveData } from './storage'
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -186,6 +186,7 @@ function reducer(state: AppData, action: Action): AppData {
         applied: 'Applied',
         phone_screen: 'Phone Screen',
         technical_interview: 'Technical Interview',
+        team_interview: 'Team Interview',
         onsite: 'Onsite',
         offer: 'Offer',
         accepted: 'Accepted',
@@ -751,15 +752,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Show localStorage data immediately so the UI is never blank
-    rawDispatch({ type: 'LOAD', payload: loadData() })
-
-    // Then fetch the authoritative file-based data
-    fetch('/api/data')
+    // Show locally cached data first so the UI is never blank, then fetch the
+    // authoritative file-based data. Sequenced so the (async) cache read can
+    // never land after — and clobber — the file data.
+    loadData()
+      .then(cached => {
+        if (!editedDuringHydrationRef.current) rawDispatch({ type: 'LOAD', payload: cached })
+      })
+      .then(() => fetch('/api/data'))
       .then(r => r.ok ? r.json() : null)
       .then((fileData: AppData | null) => {
-        // Only overwrite localStorage data if the file actually exists (r.ok)
-        // A 404 means first run — keep localStorage as-is.
+        // Only overwrite cached data if the file actually exists (r.ok)
+        // A 404 means first run — keep the cache as-is.
         // If the user already made edits while this fetch was in flight,
         // trust those edits instead of stomping them with stale file data.
         if (fileData !== null && !editedDuringHydrationRef.current) {
@@ -767,7 +771,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
-        // Server unavailable — localStorage data is already loaded
+        // Server unavailable — cached data is already loaded
       })
       .finally(() => {
         setHydrated(true)
@@ -778,16 +782,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // persists the whole thing on every change, so without this a save in one tab
   // overwrites records another tab saved since this one loaded.
   useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key !== STORAGE_KEY || e.newValue === null) return
-      // Data in localStorage is now newer than the file fetched at startup.
-      editedDuringHydrationRef.current = true
-      // The other tab already persisted this; don't echo it back.
-      skipNextSaveRef.current = true
-      rawDispatch({ type: 'LOAD', payload: loadData() })
+    const channel = getSyncChannel()
+    function onMessage() {
+      loadData().then(fresh => {
+        // The cache is now newer than the file fetched at startup.
+        editedDuringHydrationRef.current = true
+        // The other tab already persisted this; don't echo it back.
+        skipNextSaveRef.current = true
+        rawDispatch({ type: 'LOAD', payload: fresh })
+      })
     }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    channel.addEventListener('message', onMessage)
+    return () => channel.removeEventListener('message', onMessage)
   }, [])
 
   useEffect(() => {
@@ -797,7 +803,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    saveData(data)
+    // A failed local save must not block the data.json backup below.
+    saveData(data).catch(err => console.error('[cache] Failed to save locally:', err))
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {

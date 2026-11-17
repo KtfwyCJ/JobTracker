@@ -26,6 +26,9 @@ interface CoverLetterResult { coverLetter: string }
 interface Suggestion { gap: string; bullet: string }
 interface SuggestionsResult { suggestions: Suggestion[] }
 
+// Steps run by "Simple Analyze": parse the job + score it against the base CV
+const SIMPLE_STEP_IDS = ['extract', 'structure', 'match', 'gaps']
+
 const INITIAL_STEPS: Step[] = [
   { id: 'extract', label: 'JD Extractor', status: 'idle', preview: '', error: '' },
   { id: 'structure', label: 'JD Structurer', status: 'idle', preview: '', error: '' },
@@ -98,6 +101,7 @@ export default function AnalyzePage() {
   const [downloading, setDownloading] = useState(false)
   const [retryFromIndex, setRetryFromIndex] = useState<number | null>(null)
   const [showAppliedModal, setShowAppliedModal] = useState(false)
+  const [simpleMode, setSimpleMode] = useState(false)
   const [cvSnapshot, setCvSnapshot] = useState('')
   const [suggestionsResult, setSuggestionsResult] = useState<Suggestion[] | null>(null)
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
@@ -141,10 +145,11 @@ export default function AnalyzePage() {
     }
   }
 
-  async function runPipeline(startFrom = 0) {
+  async function runPipeline(startFrom = 0, simple = simpleMode) {
     if (!url.trim()) return
     setRunning(true)
     setRetryFromIndex(null)
+    setSimpleMode(simple)
 
     // Reset steps from startFrom onwards
     setSteps((prev) =>
@@ -191,7 +196,7 @@ export default function AnalyzePage() {
     }
 
     // Stage 3: CV Optimizer — tailor the LaTeX CV to this specific job before analyzing
-    if (startFrom <= 2) {
+    if (startFrom <= 2 && !simple) {
       tailor = await callStage<TailorResult>('tailorCv', '/api/cv/tailor', { jd: structure, jobText: extract?.text })
       if (!tailor) { setRunning(false); setRetryFromIndex(2); return }
       setTailorRes(tailor)
@@ -215,6 +220,14 @@ export default function AnalyzePage() {
       status: 'done',
       preview: `Score ${gaps.score}/10 · ${gaps.verdict ?? ''}`,
     })
+
+    // Simple mode: stop after scoring and add the job to the job list
+    if (simple) {
+      setRunning(false)
+      setCvSnapshot('')
+      setShowAppliedModal(true)
+      return
+    }
 
     // Stage 6: Salary Estimate
     const salary = await callStage<SalaryResult>('salary', '/api/jd/salary', { jd: structure })
@@ -245,6 +258,7 @@ export default function AnalyzePage() {
 
   function handleClear() {
     setUrl('')
+    setSimpleMode(false)
     setSteps(INITIAL_STEPS)
     setGapsResult(null)
     setSalaryResult(null)
@@ -294,6 +308,11 @@ export default function AnalyzePage() {
   }
 
   async function handleMarkAsApplied() {
+    if (simpleMode) {
+      setCvSnapshot('')
+      setShowAppliedModal(true)
+      return
+    }
     if (tailorRes?.tex) {
       setCvSnapshot(tailorRes.tex)
       setShowAppliedModal(true)
@@ -402,17 +421,25 @@ export default function AnalyzePage() {
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !running && runPipeline(0)}
+              onKeyDown={(e) => e.key === 'Enter' && !running && runPipeline(0, false)}
               placeholder="https://jobs.lever.co/..."
               className="flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
               disabled={running}
             />
             <button
-              onClick={() => runPipeline(0)}
+              onClick={() => runPipeline(0, false)}
               disabled={running || !url.trim()}
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {running ? 'Running…' : 'Analyze'}
+              {running && !simpleMode ? 'Running…' : 'Analyze'}
+            </button>
+            <button
+              onClick={() => runPipeline(0, true)}
+              disabled={running || !url.trim()}
+              title="Only parse the job posting and add it to your job list"
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {running && simpleMode ? 'Running…' : 'Simple Analyze'}
             </button>
             {anyStarted && !running && (
               <button
@@ -427,7 +454,7 @@ export default function AnalyzePage() {
           {/* Pipeline steps */}
           {anyStarted && (
             <div className="mt-6 flex flex-col gap-2">
-              {steps.map((step, i) => (
+              {steps.map((step, i) => (simpleMode && !SIMPLE_STEP_IDS.includes(step.id) ? null : (
                 <div
                   key={step.id}
                   className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
@@ -440,7 +467,7 @@ export default function AnalyzePage() {
                           : 'border-zinc-100 bg-white'
                   }`}
                 >
-                  <StepIcon status={step.status} index={i} />
+                  <StepIcon status={step.status} index={simpleMode ? SIMPLE_STEP_IDS.indexOf(step.id) : i} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-semibold ${step.status === 'idle' ? 'text-zinc-400' : 'text-zinc-900'}`}>
                       {step.label}
@@ -461,7 +488,7 @@ export default function AnalyzePage() {
                     </button>
                   )}
                 </div>
-              ))}
+              )))}
             </div>
           )}
 
@@ -536,7 +563,7 @@ export default function AnalyzePage() {
                   </ul>
 
                   {/* CV Suggestions */}
-                  {!running && (
+                  {!running && !simpleMode && (
                     <div className="mt-3 border-t border-zinc-100 pt-3">
                       {!suggestionsResult && (
                         <>
@@ -633,7 +660,7 @@ export default function AnalyzePage() {
                 onClick={handleMarkAsApplied}
                 className="w-full rounded-xl border-2 border-dashed border-zinc-300 py-3 text-sm font-semibold text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
               >
-                Mark as Applied
+                {simpleMode ? 'Add to Job List' : 'Mark as Applied'}
               </button>
             </div>
           )}

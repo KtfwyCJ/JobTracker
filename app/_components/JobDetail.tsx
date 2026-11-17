@@ -158,7 +158,7 @@ export default function JobDetail() {
           <div className="flex flex-wrap gap-1.5">
             {JOB_STATUSES.map((s) => {
               const isActive = job.status === s
-              const needsModal = s === 'phone_screen' || s === 'technical_interview'
+              const needsModal = s === 'phone_screen' || s === 'technical_interview' || s === 'team_interview'
               return (
                 <button
                   key={s}

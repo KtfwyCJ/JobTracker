@@ -12,6 +12,7 @@ interface Props {
 
 function statusToInterviewType(status: JobStatus) {
   if (status === 'phone_screen') return 'phone_screen' as const
+  if (status === 'team_interview') return 'team_interview' as const
   return 'technical_interview' as const
 }
 
