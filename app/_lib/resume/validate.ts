@@ -1,16 +1,15 @@
 import { PROFILE_IDS, type Evidence, type LlmPlan, type Plan, type ProfileId } from './types'
-import { termOccursIn } from './coverage'
+import { findTermSpan, termOccursIn } from './coverage'
 
 type Result = { ok: true; plan: Plan | LlmPlan } | { ok: false; errors: string[] }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isStrArr = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === 'string')
-const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Span of the first boundary-respecting, case-sensitive occurrence of term in text. */
 function firstSpan(text: string, term: string): [number, number] | null {
-  const m = new RegExp(`(?<![A-Za-z0-9])${escapeRegex(term)}(?![A-Za-z0-9])`).exec(text)
-  return m ? [m.index, m.index + m[0].length] : null
+  const sp = findTermSpan(text, term, true)
+  return sp ? [sp.start, sp.end] : null
 }
 
 function check(raw: unknown, ev: Evidence, requireLlm: boolean): Result {

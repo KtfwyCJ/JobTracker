@@ -1,0 +1,56 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[default]{lato}
+\usepackage[top=0.6in,bottom=0.6in,left=0.7in,right=0.7in]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\definecolor{accent}{RGB}{190,30,45}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+
+\newcommand{\cvsection}[1]{%
+  \vspace{8pt}%
+  \noindent{\large\bfseries\color{accent}#1\hspace{6pt}}%
+  {\color{black!25}\leavevmode\leaders\hrule height 0.5ex depth -0.4ex\hfill\kern0pt}%
+  \par\vspace{3pt}%
+}
+\providecommand{\resumeend}[3]{}
+
+\begin{document}
+
+{\centering
+  %%NAME%%\par
+  \vspace{4pt}
+  {\small\color{accent}\scshape %%TITLE%% }\par
+  \vspace{2pt}
+  {\small\itshape %%LOCATION%%}\par
+  \vspace{4pt}
+  {\small
+    %%CONTACT%%
+  }\par
+  \vspace{8pt}
+}
+
+\vspace{8pt}
+
+%%SUMMARY%%
+
+%%EXPERIENCE%%
+
+%%EDUCATION%%
+
+%%RESEARCH%%
+
+%%SKILLS%%
+
+%%LANGUAGES%%
+
+%%INTERESTS%%
+
+\makeatletter
+\pdfsavepos\write\@auxout{\string\resumeend{\thepage}{\the\pdflastypos}{\the\paperheight}}
+\makeatother
+\end{document}
