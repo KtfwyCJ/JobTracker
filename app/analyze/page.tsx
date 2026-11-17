@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import Link from 'next/link'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import DashboardShell from '../_components/DashboardShell'
@@ -18,13 +19,10 @@ interface Step {
 
 interface ExtractResult { text: string; wordCount: number }
 interface StructureResult { title?: string; company?: string; level?: string; location?: string; skills?: string[]; requirements?: string[]; niceToHave?: string[] }
-interface TailorResult { tex: string; filename: string; summary: string; keywordsAdded: string[]; missingRequirements: string[] }
 interface MatchResult { strengths?: string[]; gaps?: string[]; summary?: string }
 interface GapsResult { hardGaps?: string[]; softGaps?: string[]; score?: number; verdict?: string }
 interface SalaryResult { currency?: string; period?: string; min?: number; max?: number; median?: number; confidence?: string; rationale?: string; comparables?: string[] }
 interface CoverLetterResult { coverLetter: string }
-interface Suggestion { gap: string; bullet: string }
-interface SuggestionsResult { suggestions: Suggestion[] }
 
 // Steps run by "Simple Analyze": parse the job + score it against the base CV
 const SIMPLE_STEP_IDS = ['extract', 'structure', 'match', 'gaps']
@@ -32,7 +30,7 @@ const SIMPLE_STEP_IDS = ['extract', 'structure', 'match', 'gaps']
 const INITIAL_STEPS: Step[] = [
   { id: 'extract', label: 'JD Extractor', status: 'idle', preview: '', error: '' },
   { id: 'structure', label: 'JD Structurer', status: 'idle', preview: '', error: '' },
-  { id: 'tailorCv', label: 'CV Optimizer', status: 'idle', preview: '', error: '' },
+  { id: 'resumePlan', label: 'Resume Plan', status: 'idle', preview: '', error: '' },
   { id: 'match', label: 'CV Matcher', status: 'idle', preview: '', error: '' },
   { id: 'gaps', label: 'Gap Analyzer', status: 'idle', preview: '', error: '' },
   { id: 'salary', label: 'Salary Estimator', status: 'idle', preview: '', error: '' },
@@ -102,20 +100,13 @@ export default function AnalyzePage() {
   const [retryFromIndex, setRetryFromIndex] = useState<number | null>(null)
   const [showAppliedModal, setShowAppliedModal] = useState(false)
   const [simpleMode, setSimpleMode] = useState(false)
-  const [cvSnapshot, setCvSnapshot] = useState('')
-  const [suggestionsResult, setSuggestionsResult] = useState<Suggestion[] | null>(null)
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [suggestionsError, setSuggestionsError] = useState('')
-  const [suggestionsCopied, setSuggestionsCopied] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   // Stored intermediate results for retry
   const [extractRes, setExtractRes] = useState<ExtractResult | null>(null)
   const [structureRes, setStructureRes] = useState<StructureResult | null>(null)
-  const [tailorRes, setTailorRes] = useState<TailorResult | null>(null)
   const [matchRes, setMatchRes] = useState<MatchResult | null>(null)
-  const [showTailoredCv, setShowTailoredCv] = useState(false)
-  const [tailoredCvCopied, setTailoredCvCopied] = useState(false)
+  const [resumeVersionId, setResumeVersionId] = useState<string | null>(null)
 
   function updateStep(id: string, patch: Partial<Step>) {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
@@ -161,18 +152,13 @@ export default function AnalyzePage() {
       setCoverLetter('')
       setExtractRes(null)
       setStructureRes(null)
-      setTailorRes(null)
       setMatchRes(null)
-      setShowTailoredCv(false)
     }
-    if (startFrom <= 4) {
-      setSuggestionsResult(null)
-      setSuggestionsError('')
-    }
+    if (startFrom <= 2) setResumeVersionId(null)
 
     let extract = startFrom === 0 ? null : extractRes
     let structure = startFrom <= 1 ? null : structureRes
-    let tailor = startFrom <= 2 ? null : tailorRes
+    let versionId = startFrom <= 2 ? null : resumeVersionId
     let match = startFrom <= 3 ? null : matchRes
 
     // Stage 1: Extract
@@ -195,17 +181,17 @@ export default function AnalyzePage() {
       updateStep('structure', { status: 'done', preview })
     }
 
-    // Stage 3: CV Optimizer — tailor the LaTeX CV to this specific job before analyzing
+    // Stage 3: Resume Plan — evidence-based draft resume version, reviewed at /resume/<id>
     if (startFrom <= 2 && !simple) {
-      tailor = await callStage<TailorResult>('tailorCv', '/api/cv/tailor', { jd: structure, jobText: extract?.text })
-      if (!tailor) { setRunning(false); setRetryFromIndex(2); return }
-      setTailorRes(tailor)
-      updateStep('tailorCv', { status: 'done', preview: `Tailored → ${tailor.filename}` })
+      versionId = await createResumePlan(structure!, extract?.text)
+      if (!versionId) { setRunning(false); setRetryFromIndex(2); return }
+      setResumeVersionId(versionId)
+      updateStep('resumePlan', { status: 'done', preview: `Draft → /resume/${versionId}` })
     }
 
-    // Stage 4: CV Match (against the newly tailored CV)
+    // Stage 4: CV Match (against the evidence-based base CV)
     if (startFrom <= 3) {
-      match = await callStage<MatchResult>('match', '/api/cv/match', { jd: structure, cv: tailor?.tex })
+      match = await callStage<MatchResult>('match', '/api/cv/match', { jd: structure })
       if (!match) { setRunning(false); setRetryFromIndex(3); return }
       setMatchRes(match)
       const preview = (match.strengths ?? []).slice(0, 2).join(', ')
@@ -224,7 +210,6 @@ export default function AnalyzePage() {
     // Simple mode: stop after scoring and add the job to the job list
     if (simple) {
       setRunning(false)
-      setCvSnapshot('')
       setShowAppliedModal(true)
       return
     }
@@ -239,6 +224,21 @@ export default function AnalyzePage() {
         ? `${salary.currency ?? ''} ${salary.min.toLocaleString()}–${salary.max.toLocaleString()} / ${salary.period ?? 'year'}`
         : 'Estimated',
     })
+
+    // Store the analysis on the draft resume version (non-fatal)
+    if (versionId) {
+      const analysis = buildAnalysisText({ gaps, match, salary })
+      try {
+        const res = await fetch(`/api/resume/${versionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ analysis, gapsScore: gaps.score }),
+        })
+        if (!res.ok) console.warn(`Failed to store analysis on resume ${versionId}: HTTP ${res.status}`)
+      } catch (e) {
+        console.warn(`Failed to store analysis on resume ${versionId}:`, e)
+      }
+    }
 
     // Stage 7: Cover Letter
     const clResult = await callStage<CoverLetterResult>(
@@ -266,113 +266,74 @@ export default function AnalyzePage() {
     setRetryFromIndex(null)
     setExtractRes(null)
     setStructureRes(null)
-    setTailorRes(null)
-    setShowTailoredCv(false)
     setMatchRes(null)
-    setSuggestionsResult(null)
-    setSuggestionsError('')
+    setResumeVersionId(null)
   }
 
-  function buildAnalysisText(): string {
-    const lines: string[] = []
-    if (gapsResult?.score !== undefined) {
-      lines.push(`Match: ${gapsResult.score}/10 — ${gapsResult.verdict ?? ''}`)
+  async function createResumePlan(jd: StructureResult, jobText?: string): Promise<string | null> {
+    updateStep('resumePlan', { status: 'running', error: '' })
+    try {
+      const res = await fetch('/api/resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jd, jobUrl: url, jobText }),
+      })
+      const data = await res.json() as { id?: string; error?: string; errors?: string[] }
+      if (!res.ok || !data.id) {
+        const error = data.errors?.length ? data.errors.join('\n') : (data.error ?? 'Request failed')
+        updateStep('resumePlan', { status: 'error', error })
+        return null
+      }
+      return data.id
+    } catch (e) {
+      updateStep('resumePlan', { status: 'error', error: e instanceof Error ? e.message : 'Network error' })
+      return null
     }
-    if (matchRes?.strengths?.length) {
+  }
+
+  // Results are passed explicitly mid-pipeline, before the state updates have landed
+  function buildAnalysisText(
+    r: { gaps: GapsResult | null; match: MatchResult | null; salary: SalaryResult | null } =
+      { gaps: gapsResult, match: matchRes, salary: salaryResult },
+  ): string {
+    const { gaps, match, salary } = r
+    const lines: string[] = []
+    if (gaps?.score !== undefined) {
+      lines.push(`Match: ${gaps.score}/10 — ${gaps.verdict ?? ''}`)
+    }
+    if (match?.strengths?.length) {
       lines.push('')
       lines.push('Strengths:')
-      matchRes.strengths.forEach((s) => lines.push(`• ${s}`))
+      match.strengths.forEach((s) => lines.push(`• ${s}`))
     }
-    if (gapsResult?.hardGaps?.length) {
+    if (gaps?.hardGaps?.length) {
       lines.push('')
       lines.push('Hard Gaps:')
-      gapsResult.hardGaps.forEach((g) => lines.push(`• ${g}`))
+      gaps.hardGaps.forEach((g) => lines.push(`• ${g}`))
     }
-    if (gapsResult?.softGaps?.length) {
+    if (gaps?.softGaps?.length) {
       lines.push('')
       lines.push('Soft Gaps:')
-      gapsResult.softGaps.forEach((g) => lines.push(`• ${g}`))
+      gaps.softGaps.forEach((g) => lines.push(`• ${g}`))
     }
-    if (salaryResult?.min && salaryResult?.max) {
+    if (salary?.min && salary?.max) {
       lines.push('')
       lines.push(
-        `Expected Salary: ${salaryResult.currency ?? ''} ${salaryResult.min.toLocaleString()}–${salaryResult.max.toLocaleString()} / ${salaryResult.period ?? 'year'}` +
-          (salaryResult.confidence ? ` (confidence: ${salaryResult.confidence})` : ''),
+        `Expected Salary: ${salary.currency ?? ''} ${salary.min.toLocaleString()}–${salary.max.toLocaleString()} / ${salary.period ?? 'year'}` +
+          (salary.confidence ? ` (confidence: ${salary.confidence})` : ''),
       )
-      if (salaryResult.rationale) lines.push(salaryResult.rationale)
-      if (salaryResult.comparables?.length) {
-        salaryResult.comparables.forEach((c) => lines.push(`• ${c}`))
+      if (salary.rationale) lines.push(salary.rationale)
+      if (salary.comparables?.length) {
+        salary.comparables.forEach((c) => lines.push(`• ${c}`))
       }
     }
     return lines.join('\n')
-  }
-
-  async function handleMarkAsApplied() {
-    if (simpleMode) {
-      setCvSnapshot('')
-      setShowAppliedModal(true)
-      return
-    }
-    if (tailorRes?.tex) {
-      setCvSnapshot(tailorRes.tex)
-      setShowAppliedModal(true)
-      return
-    }
-    try {
-      const res = await fetch('/api/cv/current')
-      const data = await res.json()
-      setCvSnapshot(res.ok ? data.cv : '')
-    } catch {
-      setCvSnapshot('')
-    }
-    setShowAppliedModal(true)
   }
 
   function handleCopy() {
     navigator.clipboard.writeText(coverLetter)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  function handleCopyTailoredCv() {
-    if (!tailorRes?.tex) return
-    navigator.clipboard.writeText(tailorRes.tex)
-    setTailoredCvCopied(true)
-    setTimeout(() => setTailoredCvCopied(false), 2000)
-  }
-
-  async function handleGetSuggestions() {
-    if (!structureRes || !gapsResult || suggestionsLoading) return
-    setSuggestionsLoading(true)
-    setSuggestionsError('')
-    setSuggestionsResult(null)
-    try {
-      const res = await fetch('/api/cv/suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jd: structureRes, gaps: gapsResult, cv: tailorRes?.tex }),
-      })
-      const data: SuggestionsResult & { error?: string } = await res.json()
-      if (!res.ok || data.error) {
-        setSuggestionsError(data.error ?? 'Request failed')
-      } else {
-        setSuggestionsResult(data.suggestions)
-      }
-    } catch (e) {
-      setSuggestionsError(e instanceof Error ? e.message : 'Network error')
-    } finally {
-      setSuggestionsLoading(false)
-    }
-  }
-
-  function handleCopySuggestions() {
-    if (!suggestionsResult) return
-    const text = suggestionsResult
-      .map((s) => `Gap: ${s.gap}\n→ ${s.bullet}`)
-      .join('\n\n')
-    navigator.clipboard.writeText(text)
-    setSuggestionsCopied(true)
-    setTimeout(() => setSuggestionsCopied(false), 2000)
   }
 
   async function handleDownloadPdf() {
@@ -476,7 +437,7 @@ export default function AnalyzePage() {
                       <p className="mt-0.5 truncate text-xs text-zinc-500">{step.preview}</p>
                     )}
                     {step.error && (
-                      <p className="mt-0.5 text-xs text-red-600">{step.error}</p>
+                      <p className="mt-0.5 whitespace-pre-line text-xs text-red-600">{step.error}</p>
                     )}
                   </div>
                   {step.status === 'error' && retryFromIndex === i && (
@@ -492,54 +453,14 @@ export default function AnalyzePage() {
             </div>
           )}
 
-          {/* Tailored CV */}
-          {tailorRes && (
-            <div className="mt-4 rounded-xl border border-zinc-100 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-zinc-700">CV tailored for this role</p>
-                <span className="truncate font-mono text-[11px] text-zinc-400">{tailorRes.filename}</span>
-              </div>
-              {tailorRes.summary && (
-                <p className="mt-1.5 text-xs leading-relaxed text-zinc-600">{tailorRes.summary}</p>
-              )}
-              {tailorRes.keywordsAdded.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tailorRes.keywordsAdded.map((k, i) => (
-                    <span key={i} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600">
-                      {k}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {tailorRes.missingRequirements.length > 0 && (
-                <p className="mt-2 text-xs text-amber-600">
-                  Not addressed (no supporting evidence in CV): {tailorRes.missingRequirements.join(', ')}
-                </p>
-              )}
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => setShowTailoredCv((v) => !v)}
-                  className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50"
-                >
-                  {showTailoredCv ? 'Hide .tex' : 'View .tex'}
-                </button>
-                <button
-                  onClick={handleCopyTailoredCv}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    tailoredCvCopied
-                      ? 'bg-green-500 text-white'
-                      : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-                  }`}
-                >
-                  {tailoredCvCopied ? 'Copied!' : 'Copy .tex'}
-                </button>
-              </div>
-              {showTailoredCv && (
-                <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg border border-zinc-100 bg-zinc-50 p-3 font-mono text-[11px] leading-relaxed text-zinc-600">
-                  {tailorRes.tex}
-                </pre>
-              )}
-            </div>
+          {/* Resume Plan → review page */}
+          {resumeVersionId && (
+            <Link
+              href={`/resume/${resumeVersionId}`}
+              className="mt-4 flex w-full items-center justify-center rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-zinc-700"
+            >
+              审阅简历 →
+            </Link>
           )}
 
           {/* Score card */}
@@ -561,61 +482,6 @@ export default function AnalyzePage() {
                       </li>
                     ))}
                   </ul>
-
-                  {/* CV Suggestions */}
-                  {!running && !simpleMode && (
-                    <div className="mt-3 border-t border-zinc-100 pt-3">
-                      {!suggestionsResult && (
-                        <>
-                          <button
-                            onClick={handleGetSuggestions}
-                            disabled={suggestionsLoading}
-                            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {suggestionsLoading ? 'Generating…' : 'Get CV Suggestions'}
-                          </button>
-                          {suggestionsError && (
-                            <p className="mt-1.5 text-xs text-red-600">
-                              {suggestionsError}{' '}
-                              <button
-                                onClick={handleGetSuggestions}
-                                disabled={suggestionsLoading}
-                                className="underline hover:text-red-800 disabled:opacity-50"
-                              >
-                                Retry
-                              </button>
-                            </p>
-                          )}
-                        </>
-                      )}
-
-                      {suggestionsResult && (
-                        <div>
-                          <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-semibold text-zinc-700">CV Suggestions</p>
-                            <button
-                              onClick={handleCopySuggestions}
-                              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                                suggestionsCopied
-                                  ? 'bg-green-500 text-white'
-                                  : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-                              }`}
-                            >
-                              {suggestionsCopied ? 'Copied!' : 'Copy all'}
-                            </button>
-                          </div>
-                          <ul className="space-y-3">
-                            {suggestionsResult.map((s, i) => (
-                              <li key={i} className="text-xs">
-                                <p className="font-medium text-zinc-500">Gap: {s.gap}</p>
-                                <p className="mt-0.5 text-zinc-700">→ {s.bullet}</p>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -653,14 +519,14 @@ export default function AnalyzePage() {
             </div>
           )}
 
-          {/* Mark as Applied */}
-          {structureRes && !running && (
+          {/* Add to Job List (simple mode) */}
+          {simpleMode && structureRes && !running && (
             <div className="mt-4">
               <button
-                onClick={handleMarkAsApplied}
+                onClick={() => setShowAppliedModal(true)}
                 className="w-full rounded-xl border-2 border-dashed border-zinc-300 py-3 text-sm font-semibold text-zinc-500 transition-colors hover:border-zinc-400 hover:text-zinc-700"
               >
-                {simpleMode ? 'Add to Job List' : 'Mark as Applied'}
+                Add to Job List
               </button>
             </div>
           )}
@@ -730,7 +596,6 @@ export default function AnalyzePage() {
             jobLink: url,
             matchLevel: gapsResult?.score !== undefined ? Math.max(1, Math.round(gapsResult.score / 2)) : undefined,
             analysis: buildAnalysisText() || undefined,
-            cvSnapshot: cvSnapshot || undefined,
           }}
         />
       )}
