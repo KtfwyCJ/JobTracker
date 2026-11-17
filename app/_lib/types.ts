@@ -76,6 +76,7 @@ export interface Job {
   interviewerLinkedIn?: string
   technicalQuestions?: TechnicalQuestion[]
   cvSnapshot?: string
+  resumeVersionId?: string
 }
 
 export interface TechnicalQuestion {

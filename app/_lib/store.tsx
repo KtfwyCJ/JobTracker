@@ -34,7 +34,7 @@ import { getSyncChannel, loadData, saveData } from './storage'
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string }
+type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string; resumeVersionId?: string }
 
 type Action =
   | { type: 'LOAD'; payload: AppData }
@@ -98,7 +98,7 @@ function reducer(state: AppData, action: Action): AppData {
       }
 
     case 'ADD_JOB': {
-      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
+      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -125,6 +125,7 @@ function reducer(state: AppData, action: Action): AppData {
         matchLevel,
         analysis,
         cvSnapshot,
+        resumeVersionId,
       }
 
       const initialEvent: TimelineEvent = {
@@ -145,7 +146,7 @@ function reducer(state: AppData, action: Action): AppData {
     }
 
     case 'UPDATE_JOB': {
-      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
+      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -162,7 +163,7 @@ function reducer(state: AppData, action: Action): AppData {
         companies,
         jobs: state.jobs.map((j) =>
           j.id === jobId
-            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot }
+            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId }
             : j
         ),
       }

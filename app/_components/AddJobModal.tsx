@@ -14,6 +14,7 @@ interface PrefillData {
   matchLevel?: number
   analysis?: string
   cvSnapshot?: string
+  resumeVersionId?: string
 }
 
 export default function AddJobModal({ onClose, job, prefill }: { onClose: () => void; job?: Job; prefill?: PrefillData }) {
@@ -25,6 +26,7 @@ export default function AddJobModal({ onClose, job, prefill }: { onClose: () => 
   const [title, setTitle] = useState(job?.title ?? prefill?.title ?? '')
   const [description, setDescription] = useState(job?.description ?? prefill?.description ?? '')
   const [cvSnapshot] = useState(job?.cvSnapshot ?? prefill?.cvSnapshot ?? '')
+  const [resumeVersionId] = useState(job?.resumeVersionId ?? prefill?.resumeVersionId ?? '')
   const [location, setLocation] = useState(job?.location ?? prefill?.location ?? '')
   const [appliedAt, setAppliedAt] = useState(job?.appliedAt ?? new Date().toISOString().split('T')[0])
   const [requiresGerman, setRequiresGerman] = useState(job?.requiresGerman ?? false)
@@ -51,7 +53,7 @@ export default function AddJobModal({ onClose, job, prefill }: { onClose: () => 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!companyName.trim() || !title.trim()) return
-    const extra = { jobPostingId: jobPostingId.trim() || undefined, jobLink: jobLink.trim() || undefined, matchLevel, analysis: analysis.trim() || undefined, cvSnapshot: cvSnapshot || undefined }
+    const extra = { jobPostingId: jobPostingId.trim() || undefined, jobLink: jobLink.trim() || undefined, matchLevel, analysis: analysis.trim() || undefined, cvSnapshot: cvSnapshot || undefined, resumeVersionId: resumeVersionId || undefined }
     if (job) {
       updateJob({ jobId: job.id, companyName: companyName.trim(), title: title.trim(), description, location, appliedAt, requiresGerman, ...extra })
     } else {

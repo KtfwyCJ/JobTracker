@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useStore } from '../_lib/store'
 import { JOB_STATUSES, STATUS_LABELS, STATUS_COLORS, type JobStatus } from '../_lib/types'
 import Timeline from './Timeline'
@@ -226,6 +227,24 @@ export default function JobDetail() {
             {analysisOpen && (
               <pre className="whitespace-pre-wrap border-l-2 border-zinc-300 bg-zinc-50 pl-3 py-2 font-mono text-xs leading-relaxed text-zinc-600 ml-5">{job.analysis}</pre>
             )}
+          </div>
+        )}
+
+        {/* Resume version */}
+        {job.resumeVersionId && (
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+            <span className="font-semibold text-zinc-700">简历版本</span>
+            <Link href={`/resume/${job.resumeVersionId}`} className="font-mono text-xs text-zinc-600 underline hover:text-zinc-900">
+              {job.resumeVersionId}
+            </Link>
+            <a
+              href={`/api/resume/${job.resumeVersionId}/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-zinc-500 underline hover:text-zinc-900"
+            >
+              PDF
+            </a>
           </div>
         )}
 
