@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseEvidence } from '../evidence'
-import { planResume, structureJd, buildPlanSchema, LlmError, MAX_BULLETS } from '../llm'
+import { planResume, structureJd, normalizeJd, buildPlanSchema, LlmError, MAX_BULLETS, PLAN_SYSTEM } from '../llm'
 
 const ev = parseEvidence(readFileSync(join(__dirname, '../__fixtures__/evidence.yaml'), 'utf8'))
 const jd = { mustHave: [], plus: [], keywords: ['React'] }
@@ -78,5 +78,29 @@ describe('structureJd', () => {
     expect(r.keywords).toEqual([])
     expect(call.mock.calls[0][0].effort).toBe('low')
     expect(call.mock.calls[0][0].user).toContain('some jd')
+  })
+})
+
+describe('plan prompt', () => {
+  it('states bold is the full per-bullet list and shows defaults', async () => {
+    expect(PLAN_SYSTEM).toContain('bold is the FULL list for each selected bullet')
+    expect(PLAN_SYSTEM).toMatch(/repeat them to keep them, omit one only to remove it/)
+    const call = vi.fn().mockResolvedValue(good())
+    await planResume(args, call)
+    expect(call.mock.calls[0][0].system).toBe(PLAN_SYSTEM)
+    expect(call.mock.calls[0][0].user).toContain('"bold":["Node.js"]')
+  })
+  it('MAX_BULLETS is 11', () => {
+    expect(MAX_BULLETS).toBe(11)
+  })
+})
+
+describe('normalizeJd', () => {
+  it('rejects non-objects', () => {
+    for (const x of [null, undefined, 'jd', 3, []]) expect(normalizeJd(x)).toBeNull()
+  })
+  it('defaults missing / non-array lists and drops non-string scalars', () => {
+    const jd = normalizeJd({ title: 5, company: 'Acme', mustHave: 'x', plus: [{ text: 'Go', keywords: ['Go', 1] }, 'bad'], keywords: null })!
+    expect(jd).toMatchObject({ title: undefined, company: 'Acme', mustHave: [], plus: [{ text: 'Go', keywords: ['Go'] }], keywords: [] })
   })
 })

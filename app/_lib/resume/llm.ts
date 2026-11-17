@@ -1,9 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { evidenceForPrompt } from './evidence'
 import { validatePlan } from './validate'
-import { PROFILE_IDS, type Evidence, type JdAnalysis, type LlmPlan, type ProfileId } from './types'
+import { PROFILE_IDS, type Evidence, type JdAnalysis, type JdRequirement, type LlmPlan, type ProfileId } from './types'
 
-export const MAX_BULLETS = 12
+export const MAX_BULLETS = 11
 const MODEL = 'claude-opus-5-5'
 
 export class LlmError extends Error {
@@ -74,19 +74,39 @@ const JD_SYSTEM = `You extract structured information from a job description.
 - keywords: all distinct technologies and skills mentioned.
 Return only data from the job description; never invent anything.`
 
+const optStr = (v: unknown) => (typeof v === 'string' ? v : undefined)
+const strList = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+const optStrList = (v: unknown) => (Array.isArray(v) ? strList(v) : undefined)
+const reqList = (v: unknown): JdRequirement[] =>
+  Array.isArray(v)
+    ? v.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null && typeof r.text === 'string')
+      .map(r => ({ text: r.text as string, keywords: strList(r.keywords) }))
+    : []
+
+/**
+ * Coerce untrusted JD data (model output or a request body) into a JdAnalysis that downstream code can rely on:
+ * mustHave/plus/keywords always arrays, scalar fields strings or undefined. Returns null if `raw` is not an object.
+ */
+export function normalizeJd(raw: unknown): JdAnalysis | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
+  const o = raw as Record<string, unknown>
+  return {
+    title: optStr(o.title), company: optStr(o.company), level: optStr(o.level), location: optStr(o.location),
+    skills: optStrList(o.skills), requirements: optStrList(o.requirements), niceToHave: optStrList(o.niceToHave),
+    mustHave: reqList(o.mustHave), plus: reqList(o.plus), keywords: strList(o.keywords),
+  }
+}
+
 export async function structureJd(text: string, call: CallModel = anthropicCall): Promise<JdAnalysis> {
-  const out = (await call({
+  const out = await call({
     system: JD_SYSTEM,
     user: `Job Description:\n${text}`,
     schema: JD_SCHEMA,
     effort: 'low',
-  })) as Partial<JdAnalysis>
-  return {
-    ...out,
-    mustHave: out.mustHave ?? [],
-    plus: out.plus ?? [],
-    keywords: out.keywords ?? [],
-  }
+  })
+  const jd = normalizeJd(out)
+  if (!jd) throw new LlmError('Model returned a non-object JD')
+  return jd
 }
 
 export function buildPlanSchema(ev: Evidence, profile?: ProfileId): object {
@@ -141,7 +161,7 @@ export function buildPlanSchema(ev: Evidence, profile?: ProfileId): object {
   }
 }
 
-const PLAN_SYSTEM = `You tailor a resume to a job description by selecting and ordering EXISTING evidence. You never write new resume text.
+export const PLAN_SYSTEM = `You tailor a resume to a job description by selecting and ordering EXISTING evidence. You never write new resume text.
 Rules:
 - Never invent text. Bullets are referenced by id only and are never reworded.
 - Choose exactly one profile.
@@ -149,6 +169,7 @@ Rules:
 - Total bullets across all experiences must be <= maxBullets.
 - Order bullets within an experience by relevance to the job description.
 - Bold terms must be exact substrings of that bullet's text.
+- bold is the FULL list for each selected bullet, not a delta. Each bullet's default bold terms are shown in the evidence; repeat them to keep them, omit one only to remove it.
 - Skills are only reordered: list skill groups in order of relevance and the items within each group in order of relevance; never add or drop items.
 - Set fit to "low" when no profile fits the job well, and say why in profileReason.`
 

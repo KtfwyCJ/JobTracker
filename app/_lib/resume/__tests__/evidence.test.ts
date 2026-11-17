@@ -45,4 +45,12 @@ describe('evidenceForPrompt', () => {
     const out = evidenceForPrompt(ev)
     for (const e of ev.experiences) for (const b of e.bullets) expect(out).toContain(b.id)
   })
+  it('includes each bullet\'s default bold list', () => {
+    const ev = parseEvidence(fixture)
+    const parsed = JSON.parse(evidenceForPrompt(ev))
+    const bullets = parsed.experiences.flatMap((e: { bullets: unknown[] }) => e.bullets)
+    const all = ev.experiences.flatMap(e => e.bullets)
+    expect(bullets.map((b: { bold: string[] }) => b.bold)).toEqual(all.map(b => b.bold))
+    expect(all.some(b => b.bold.length > 0)).toBe(true)
+  })
 })

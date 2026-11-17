@@ -73,7 +73,7 @@ export function evidenceForPrompt(ev: Evidence): string {
       company: e.company,
       role: e.role,
       dates: e.dates,
-      bullets: e.bullets.map(b => ({ id: b.id, text: b.text, profiles: b.profiles })),
+      bullets: e.bullets.map(b => ({ id: b.id, text: b.text, profiles: b.profiles, bold: b.bold ?? [] })),
     })),
     skillGroups: ev.skillGroups.map(g => ({ id: g.id, label: g.label, items: g.items })),
   })
