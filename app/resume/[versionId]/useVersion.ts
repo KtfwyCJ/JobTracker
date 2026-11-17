@@ -54,11 +54,19 @@ export function useVersion(id: string) {
     acceptedRef.current = v.accepted
   }, [])
 
+  /**
+   * Re-read the server view after a failed request. Guarded by the request counter: if the user
+   * toggled again while this GET was in flight, applying it would revert that newer local change.
+   * A failure is appended to the error banner (loadError is only shown before the first load).
+   */
   const resync = useCallback(async () => {
+    const req = reqRef.current
     try {
-      apply(await call<VersionView>(`/api/resume/${id}`))
+      const v = await call<VersionView>(`/api/resume/${id}`)
+      if (req === reqRef.current) apply(v)
     } catch (e) {
-      setLoadError(toFailure(e).message)
+      const msg = `重新同步失败：${toFailure(e).message}`
+      setError((prev) => (prev ? { ...prev, details: [...prev.details, msg] } : { message: msg, details: [] }))
     }
   }, [id, apply])
 
