@@ -3,7 +3,7 @@ import { evidenceForPrompt } from './evidence'
 import { validatePlan } from './validate'
 import { PROFILE_IDS, type Evidence, type JdAnalysis, type LlmPlan, type ProfileId } from './types'
 
-export const MAX_BULLETS = 10
+export const MAX_BULLETS = 12
 const MODEL = 'claude-opus-5-5'
 
 export class LlmError extends Error {
