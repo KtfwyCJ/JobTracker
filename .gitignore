@@ -66,3 +66,7 @@ scripts/try-aggregators.ts
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# personal resume data
+evidence/
+resume-versions/

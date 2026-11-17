@@ -1,0 +1,82 @@
+contact:
+  name: Ada Test
+  location: Testville
+  email: ada@example.com
+profiles:
+  - id: ai-engineer
+    title: AI Engineer
+    summary: Builds LLM systems.
+    skillGroups: [lang]
+  - id: senior-fullstack
+    title: Senior Fullstack Engineer
+    summary: Builds products end to end.
+    skillGroups: [lang, fe]
+  - id: senior-frontend
+    title: Senior Frontend Engineer
+    summary: Builds UIs.
+    skillGroups: [fe, lang]
+experiences:
+  - id: acme
+    company: Acme Corp
+    location: Testville
+    role: Engineer
+    dates: 2020 - 2023
+    bullets:
+      - id: acme-1
+        text: Built a Node.js service handling 1M requests per day.
+        profiles: [senior-fullstack, ai-engineer]
+        bold: [Node.js]
+      - id: acme-2
+        text: Cut page load time by 50% through caching.
+        profiles: [senior-frontend, senior-fullstack]
+        bold: ["50%"]
+      - id: acme-3
+        text: Designed a retrieval pipeline for internal documents.
+        profiles: [ai-engineer]
+        bold: []
+      - id: acme-4
+        text: Mentored three junior engineers.
+        profiles: [senior-fullstack, senior-frontend, ai-engineer]
+        bold: []
+  - id: beta
+    company: Beta Ltd
+    location: Remote
+    role: Developer
+    dates: 2018 - 2020
+    bullets:
+      - id: beta-1
+        text: Shipped a React dashboard for analytics.
+        profiles: [senior-frontend]
+        bold: [React]
+      - id: beta-2
+        text: Wrote Python tooling for data cleanup.
+        profiles: [ai-engineer, senior-fullstack]
+        bold: []
+education:
+  - id: edu-1
+    school: Test University
+    location: Testville
+    degree: MSc Computer Science
+    dates: 2016 - 2018
+    notes: []
+research:
+  - id: res-1
+    title: A Test Paper
+    venue: TestConf
+    topic: Testing
+    text: Studied testing.
+skillGroups:
+  - id: lang
+    label: Languages
+    items: [Python, TypeScript, C++]
+  - id: fe
+    label: Frontend
+    items: [React, Vue.js]
+languages:
+  - name: English
+    level: Fluent
+interests:
+  - name: Chess
+    text: Plays chess.
+aliases:
+  Kubernetes: [k8s]
