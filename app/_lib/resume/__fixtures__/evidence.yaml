@@ -52,6 +52,10 @@ experiences:
         text: Wrote Python tooling for data cleanup.
         profiles: [ai-engineer, senior-fullstack]
         bold: []
+      - id: beta-3
+        text: Built a React Native app in TypeScript for field staff.
+        profiles: [senior-frontend]
+        bold: []
 education:
   - id: edu-1
     school: Test University
