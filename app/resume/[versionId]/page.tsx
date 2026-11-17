@@ -28,8 +28,12 @@ function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: 
   )
 }
 
-export default function Page({ params }: { params: Promise<{ versionId: string }> }) {
+export default function Page({ params, searchParams }: {
+  params: Promise<{ versionId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { versionId } = use(params)
+  const regeneratedNotice = use(searchParams).regenerated === '1'
   const router = useRouter()
   const { view, accepted, loadError, error, pending, busy, renderStamp, toggle, regenerate, finalize, duplicate } =
     useVersion(versionId)
@@ -69,11 +73,14 @@ export default function Page({ params }: { params: Promise<{ versionId: string }
   }
 
   const onDuplicate = async () => {
-    const newId = await duplicate()
-    if (newId) router.push('/resume/' + newId)
+    const r = await duplicate()
+    if (r) router.push('/resume/' + r.id + (r.regenerated ? '?regenerated=1' : ''))
   }
 
   const over = view.pageFill !== null && view.pageFill > MAX_PAGE_FILL
+  // pageFill is stored unrounded; show 3 decimals when 2 would hide that it is over the limit (e.g. 1.504).
+  const fillText = view.pageFill === null ? '—'
+    : over && view.pageFill.toFixed(2) === MAX_PAGE_FILL.toFixed(2) ? view.pageFill.toFixed(3) : view.pageFill.toFixed(2)
 
   return (
     <DashboardShell>
@@ -83,8 +90,8 @@ export default function Page({ params }: { params: Promise<{ versionId: string }
           <div className={card}>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-lg font-semibold text-zinc-900">
-                {view.jd.title ?? '未命名职位'}
-                {view.jd.company && <span className="font-normal text-zinc-500"> · {view.jd.company}</span>}
+                {view.jd.title || '未命名职位'}
+                {view.jd.company ? <span className="font-normal text-zinc-500"> · {view.jd.company}</span> : null}
               </h1>
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isFinal ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-600'}`}>
                 {isFinal ? '已定稿' : '草稿'}
@@ -109,6 +116,12 @@ export default function Page({ params }: { params: Promise<{ versionId: string }
               )}
             </div>
           </div>
+
+          {regeneratedNotice && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              证据库已变化，原方案不再有效，已为此草稿重新生成方案（勾选已重置为全选）。
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
@@ -166,7 +179,7 @@ export default function Page({ params }: { params: Promise<{ versionId: string }
               <span className="text-xs text-zinc-600">
                 篇幅{' '}
                 <span className={over ? 'font-semibold text-red-600' : 'font-medium text-zinc-900'}>
-                  {view.pageFill === null ? '—' : view.pageFill.toFixed(2)} / {MAX_PAGE_FILL} 页
+                  {fillText} / {MAX_PAGE_FILL} 页
                 </span>
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
@@ -189,6 +202,12 @@ export default function Page({ params }: { params: Promise<{ versionId: string }
                 )}
               </div>
             </div>
+            {view.layoutWarnings.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                <p className="font-medium">版式溢出：有内容超出页面边缘（不可见），无法定稿。</p>
+                <ul className="mt-1 list-disc pl-4">{view.layoutWarnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+              </div>
+            )}
             {view.validationErrors.length > 0 && (
               <ul className="list-disc space-y-0.5 rounded-lg bg-red-50 p-3 pl-7 text-xs text-red-700">
                 {view.validationErrors.map((e, i) => <li key={i}>{e}</li>)}

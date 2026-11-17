@@ -149,13 +149,13 @@ export function useVersion(id: string) {
     }
   }
 
-  /** Returns the new draft's id, or null on failure. */
-  const duplicate = async (): Promise<string | null> => {
+  /** Returns the new draft's id (and whether its plan had to be regenerated), or null on failure. */
+  const duplicate = async (): Promise<{ id: string; regenerated: boolean } | null> => {
     setBusy('duplicate')
     try {
-      const r = await call<{ id: string }>(`/api/resume/${id}/duplicate`, { method: 'POST' })
+      const r = await call<{ id: string; regenerated?: boolean }>(`/api/resume/${id}/duplicate`, { method: 'POST' })
       setError(null)
-      return r.id
+      return { id: r.id, regenerated: !!r.regenerated }
     } catch (e) {
       setError(toFailure(e))
       return null
