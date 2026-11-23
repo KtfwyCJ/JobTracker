@@ -14,8 +14,9 @@ import TechnicalQuestionsDrawer from './TechnicalQuestionsDrawer'
 export default function JobDetail() {
   const { data, selectedJobId, setSelectedJobId, updateJobStatus, updateJobLanguage, updateJobMatch, updateRejectionEmail, setEditingJobId, deleteJob, getCompany } = useStore()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [descOpen, setDescOpen] = useState(true)
-  const [analysisOpen, setAnalysisOpen] = useState(true)
+  // Long texts: collapsed by default, and collapsed again whenever another job is opened.
+  const [descOpen, setDescOpen] = useState(false)
+  const [analysisOpen, setAnalysisOpen] = useState(false)
   const [cvSnapshotOpen, setCvSnapshotOpen] = useState(true)
   const [cvCopied, setCvCopied] = useState(false)
   const [rejectionEmailOpen, setRejectionEmailOpen] = useState(true)
@@ -32,6 +33,8 @@ export default function JobDetail() {
     setRejectionEmailOpen(true)
     setCvCopied(false)
     setDrawerOpen(false)
+    setDescOpen(false)
+    setAnalysisOpen(false)
   }, [selectedJobId])
 
   const job = selectedJobId ? data.jobs.find((j) => j.id === selectedJobId) : undefined
