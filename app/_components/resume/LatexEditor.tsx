@@ -12,6 +12,8 @@ interface Props {
   canStart: boolean
   /** Start/discard request in flight. */
   switching: boolean
+  /** Last failed request (shown here too: the page-level banner is far above the editor). */
+  requestError?: string
   onChange: (s: string) => void
   onStart: () => void
   onSaveNow: () => void
@@ -58,6 +60,9 @@ export default function LatexEditor(p: Props) {
         {!p.manual && !p.isFinal && <span className="text-zinc-500">只读：内容由勾选的建议生成</span>}
         <span className="ml-auto"><Status manual={p.manual} dirty={p.dirty} saving={p.saving} compileError={p.compileError} /></span>
       </div>
+      {p.requestError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-medium text-red-700">请求失败：{p.requestError}</p>
+      )}
       {p.manual && p.compileError && !p.saving && (
         <details className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
           <summary className="cursor-pointer font-medium">编译失败，右侧仍是上一版成功的 PDF（展开查看日志）</summary>

@@ -181,6 +181,7 @@ export default function Page({ params, searchParams }: {
                 compileError={view.compileError}
                 canStart={!isFinal && busy === null && !pending}
                 switching={busy === 'manual'}
+                requestError={error?.message}
                 onChange={setTexDraft}
                 onStart={() => void startManual()}
                 onSaveNow={() => void saveNow()}
