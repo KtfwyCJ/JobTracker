@@ -6,6 +6,7 @@ import type { VersionView } from '@/app/_lib/resume/versions'
 import type { ProfileId } from '@/app/_lib/resume/types'
 
 const DEBOUNCE_MS = 400
+const TEX_DEBOUNCE_MS = 1500
 
 /** Error from an API call, with whatever detail lists the route returned. */
 export interface ApiFailure { message: string; details: string[] }
@@ -34,6 +35,8 @@ const toFailure = (e: unknown): ApiFailure => ({
  * - `accepted` updates locally right away; a PATCH fires DEBOUNCE_MS after the last toggle.
  * - Responses from superseded requests are dropped (request counter).
  * - `renderStamp` bumps after every successful rebuild so the PDF iframe reloads.
+ * - Manual LaTeX: `texDraft` is the editor's content. Save responses never write back into it (that would
+ *   eat keystrokes typed while the compile ran); it is only reset on load, startManual and discardManual.
  */
 export function useVersion(id: string) {
   const [view, setView] = useState<VersionView | null>(null)
@@ -41,17 +44,28 @@ export function useVersion(id: string) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<ApiFailure | null>(null)
   const [pending, setPending] = useState(false) // toggle debounce scheduled or its PATCH in flight
-  const [busy, setBusy] = useState<null | 'regenerate' | 'finalize' | 'duplicate'>(null)
+  const [busy, setBusy] = useState<null | 'regenerate' | 'finalize' | 'duplicate' | 'manual'>(null)
   const [renderStamp, setRenderStamp] = useState(0)
+  const [texDraft, setTexDraftState] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const acceptedRef = useRef<string[]>([])
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reqRef = useRef(0)
+  const texRef = useRef('')
+  const texTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const apply = useCallback((v: VersionView) => {
     setView(v)
     setAccepted(v.accepted)
     acceptedRef.current = v.accepted
+  }, [])
+
+  const syncTex = useCallback((v: VersionView) => {
+    texRef.current = v.tex
+    setTexDraftState(v.tex)
+    setDirty(false)
   }, [])
 
   /**
@@ -73,13 +87,21 @@ export function useVersion(id: string) {
   useEffect(() => {
     let alive = true
     call<VersionView>(`/api/resume/${id}`)
-      .then((v) => { if (alive) apply(v) })
+      .then((v) => { if (alive) { apply(v); syncTex(v) } })
       .catch((e) => { if (alive) setLoadError(toFailure(e).message) })
     return () => {
       alive = false
       if (timerRef.current) clearTimeout(timerRef.current)
+      if (texTimerRef.current) clearTimeout(texTimerRef.current)
     }
-  }, [id, apply])
+  }, [id, apply, syncTex])
+
+  useEffect(() => {
+    if (!dirty && !saving) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty, saving])
 
   const cancelPendingToggle = () => {
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -149,13 +171,13 @@ export function useVersion(id: string) {
     }
   }
 
-  /** Returns the new draft's id (and whether its plan had to be regenerated), or null on failure. */
-  const duplicate = async (): Promise<{ id: string; regenerated: boolean } | null> => {
+  /** Returns the new draft's id (whether its plan was regenerated / manual edits dropped), or null on failure. */
+  const duplicate = async (): Promise<{ id: string; regenerated: boolean; manualDropped: boolean } | null> => {
     setBusy('duplicate')
     try {
-      const r = await call<{ id: string; regenerated?: boolean }>(`/api/resume/${id}/duplicate`, { method: 'POST' })
+      const r = await call<{ id: string; regenerated?: boolean; manualDropped?: boolean }>(`/api/resume/${id}/duplicate`, { method: 'POST' })
       setError(null)
-      return { id: r.id, regenerated: !!r.regenerated }
+      return { id: r.id, regenerated: !!r.regenerated, manualDropped: !!r.manualDropped }
     } catch (e) {
       setError(toFailure(e))
       return null
@@ -164,5 +186,66 @@ export function useVersion(id: string) {
     }
   }
 
-  return { view, accepted, loadError, error, pending, busy, renderStamp, toggle, regenerate, finalize, duplicate }
+  /** Save the current draft and compile it. Stale responses (the user typed again meanwhile) are dropped. */
+  const saveTex = useCallback(async () => {
+    if (texTimerRef.current) clearTimeout(texTimerRef.current)
+    texTimerRef.current = null
+    const req = reqRef.current
+    const sent = texRef.current
+    setSaving(true)
+    try {
+      const v = await call<VersionView>(`/api/resume/${id}`, {
+        method: 'PATCH', body: JSON.stringify({ manualTex: sent }),
+      })
+      if (req !== reqRef.current) return
+      apply(v)
+      setError(null)
+      setRenderStamp((s) => s + 1)
+      if (sent === texRef.current) setDirty(false)
+    } catch (e) {
+      // No resync here: it would replace the draft with the server copy. The draft stays dirty.
+      if (req === reqRef.current) setError(toFailure(e))
+    } finally {
+      if (req === reqRef.current) setSaving(false)
+    }
+  }, [id, apply])
+
+  const setTexDraft = (s: string) => {
+    texRef.current = s
+    setTexDraftState(s)
+    setDirty(true)
+    reqRef.current++
+    if (texTimerRef.current) clearTimeout(texTimerRef.current)
+    texTimerRef.current = setTimeout(() => void saveTex(), TEX_DEBOUNCE_MS)
+  }
+
+  const saveNow = () => saveTex()
+
+  const switchManual = async (manualTex: string | null) => {
+    if (texTimerRef.current) clearTimeout(texTimerRef.current)
+    texTimerRef.current = null
+    reqRef.current++
+    setSaving(false)
+    setBusy('manual')
+    try {
+      const v = await call<VersionView>(`/api/resume/${id}`, { method: 'PATCH', body: JSON.stringify({ manualTex }) })
+      apply(v)
+      syncTex(v)
+      setError(null)
+      setRenderStamp((s) => s + 1)
+    } catch (e) {
+      setError(toFailure(e))
+      await resync()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const startManual = () => switchManual(view?.generatedTex ?? '')
+  const discardManual = () => switchManual(null)
+
+  return {
+    view, accepted, loadError, error, pending, busy, renderStamp, toggle, regenerate, finalize, duplicate,
+    texDraft, setTexDraft, dirty, saving, startManual, saveNow, discardManual,
+  }
 }
