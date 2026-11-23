@@ -5,7 +5,7 @@ import { parseEvidence } from './evidence'
 import { MAX_BULLETS, planResume, type CallModel } from './llm'
 import { validatePlan } from './validate'
 import {
-  createVersion, readVersionRecord, updateVersion, versionDir, VersionFrozenError, type VersionDeps,
+  createVersion, ManualModeError, readVersionRecord, updateVersion, versionDir, VersionFrozenError, type VersionDeps,
 } from './versions'
 
 export type PipelineOpts = { evidencePath?: string; root?: string; call?: CallModel; deps?: VersionDeps }
@@ -30,6 +30,7 @@ export async function regenerateForProfile(
 ): Promise<{ ok: true } | { ok: false; errors: string[] }> {
   const v = readVersionRecord(id, opts.root) // validates id, throws VersionNotFoundError
   if (v.status === 'final') throw new VersionFrozenError(`Version ${id} is final`)
+  if (v.manualTex !== undefined) throw new ManualModeError()
   const ev = parseEvidence(fs.readFileSync(snapshotFile(id, opts), 'utf8'))
   const r = await planResume({ jd: v.jd, ev, profile, maxBullets: MAX_BULLETS }, opts.call)
   if (!r.ok) return { ok: false, errors: r.errors }
@@ -43,18 +44,20 @@ export async function regenerateForProfile(
  * accepted suggestions. Only if the stored plan no longer validates against the current evidence is the
  * LLM asked for a new plan (`regenerated: true`).
  */
+// Hand-edited LaTeX is carried over too, unless the plan had to be regenerated (`manualDropped: true`):
+// the edits were made on top of the old plan's output.
 export async function duplicateVersion(
   id: string, opts: PipelineOpts = {},
-): Promise<{ ok: true; id: string; regenerated: boolean } | { ok: false; errors: string[] }> {
+): Promise<{ ok: true; id: string; regenerated: boolean; manualDropped: boolean } | { ok: false; errors: string[] }> {
   const v = readVersionRecord(id, opts.root)
   const yamlText = readEvidenceYaml(opts)
   const ev = parseEvidence(yamlText)
-  const { jd, jobUrl, jobText, analysis, gapsScore, llmPlan, accepted } = v
+  const { jd, jobUrl, jobText, analysis, gapsScore, llmPlan, accepted, manualTex } = v
   if (!validatePlan(llmPlan, ev, { requireLlmFields: true }).ok) {
     const r = await generateVersion({ jd, jobUrl, jobText, analysis, gapsScore }, opts)
-    return r.ok ? { ok: true, id: r.id, regenerated: true } : r
+    return r.ok ? { ok: true, id: r.id, regenerated: true, manualDropped: manualTex !== undefined } : r
   }
   const newId = await createVersion(
-    { jd, jobUrl, jobText, analysis, gapsScore, llmPlan, accepted }, yamlText, opts.root, opts.deps)
-  return { ok: true, id: newId, regenerated: false }
+    { jd, jobUrl, jobText, analysis, gapsScore, llmPlan, accepted, manualTex }, yamlText, opts.root, opts.deps)
+  return { ok: true, id: newId, regenerated: false, manualDropped: false }
 }

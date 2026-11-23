@@ -29,12 +29,15 @@ export async function PATCH(req: Request, { params }: RouteCtx) {
       if (b.analysis !== undefined && typeof b.analysis !== 'string') return badRequest('analysis must be a string')
       if (b.gapsScore !== undefined && (typeof b.gapsScore !== 'number' || !Number.isFinite(b.gapsScore))) return badRequest('gapsScore must be a number')
       await updateVersion(id, { analysis: b.analysis as string | undefined, gapsScore: b.gapsScore as number | undefined })
+    } else if (only(['manualTex'])) {
+      if (b.manualTex !== null && typeof b.manualTex !== 'string') return badRequest('manualTex must be a string or null')
+      await updateVersion(id, { manualTex: b.manualTex as string | null })
     } else if (only(['regenerateProfile'])) {
       if (!PROFILE_IDS.includes(b.regenerateProfile as ProfileId)) return badRequest('Unknown profile')
       const r = await regenerateForProfile(id, b.regenerateProfile as ProfileId)
       if (!r.ok) return Response.json({ errors: r.errors }, { status: 422 })
     } else {
-      return badRequest('Body must be exactly one of { accepted }, { analysis?, gapsScore? }, { regenerateProfile }')
+      return badRequest('Body must be exactly one of { accepted }, { analysis?, gapsScore? }, { regenerateProfile }, { manualTex }')
     }
     return Response.json(readVersionView(id))
   } catch (e) {

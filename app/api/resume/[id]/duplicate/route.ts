@@ -9,7 +9,7 @@ export async function POST(_req: Request, { params }: RouteCtx) {
     const { id } = await params
     const r = await duplicateVersion(id)
     if (!r.ok) return Response.json({ errors: r.errors }, { status: 422 })
-    return Response.json({ id: r.id, regenerated: r.regenerated })
+    return Response.json({ id: r.id, regenerated: r.regenerated, manualDropped: r.manualDropped })
   } catch (e) {
     return errorResponse(e)
   }

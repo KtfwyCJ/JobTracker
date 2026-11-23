@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { duplicateVersion, generateVersion, regenerateForProfile } from '../pipeline'
-import { finalizeVersion, readVersionView, updateVersion, VersionFrozenError } from '../versions'
+import { finalizeVersion, ManualModeError, readVersionView, updateVersion, VersionFrozenError } from '../versions'
 import type { JdAnalysis } from '../types'
 
 const fixture = join(__dirname, '../__fixtures__/evidence.yaml')
@@ -93,6 +93,53 @@ describe('pipeline: frozen + duplicate', () => {
       const d = await duplicateVersion(id, { evidencePath, root, call, deps })
       expect(call).toHaveBeenCalledTimes(1)
       expect(d.ok && d.regenerated).toBe(true)
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('duplicate carries manualTex when the plan still validates', async () => {
+    const { root, evidencePath, id } = await setup()
+    try {
+      await updateVersion(id, { manualTex: 'mine' }, root, deps)
+      const d = await duplicateVersion(id, { evidencePath, root, call: vi.fn(), deps })
+      expect(d.ok && d.manualDropped).toBe(false)
+      if (!d.ok) return
+      expect(readVersionView(d.id, root).tex).toBe('mine')
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('duplicate drops manualTex when it had to regenerate', async () => {
+    const { root, evidencePath, id } = await setup()
+    try {
+      await updateVersion(id, { manualTex: 'mine' }, root, deps)
+      writeFileSync(evidencePath, readFileSync(evidencePath, 'utf8').replace(/id: beta-2\n/, 'id: beta-2x\n'))
+      const call = vi.fn().mockResolvedValue({ ...planFor('senior-fullstack'),
+        experiences: [{ experienceId: 'acme', bulletIds: ['acme-1'] }, { experienceId: 'beta', bulletIds: ['beta-1'] }] })
+      const d = await duplicateVersion(id, { evidencePath, root, call, deps })
+      expect(d.ok && d.regenerated && d.manualDropped).toBe(true)
+      if (!d.ok) return
+      expect(readVersionView(d.id, root).manual).toBe(false)
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('duplicate of a non-manual version reports manualDropped false', async () => {
+    const { root, evidencePath, id } = await setup()
+    try {
+      writeFileSync(evidencePath, readFileSync(evidencePath, 'utf8').replace(/id: beta-2\n/, 'id: beta-2x\n'))
+      const call = vi.fn().mockResolvedValue({ ...planFor('senior-fullstack'),
+        experiences: [{ experienceId: 'acme', bulletIds: ['acme-1'] }, { experienceId: 'beta', bulletIds: ['beta-1'] }] })
+      const d = await duplicateVersion(id, { evidencePath, root, call, deps })
+      expect(d.ok && d.regenerated).toBe(true)
+      expect(d.ok && d.manualDropped).toBe(false)
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
+  it('regenerateForProfile refuses manual mode before calling the LLM', async () => {
+    const { root, evidencePath, id } = await setup()
+    try {
+      await updateVersion(id, { manualTex: 'x' }, root, deps)
+      const call = vi.fn()
+      await expect(regenerateForProfile(id, 'senior-frontend', { evidencePath, root, call, deps })).rejects.toBeInstanceOf(ManualModeError)
+      expect(call).not.toHaveBeenCalled()
     } finally { rmSync(root, { recursive: true, force: true }) }
   })
 })
