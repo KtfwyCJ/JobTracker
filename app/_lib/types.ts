@@ -2,6 +2,7 @@ export type JobStatus =
   | 'applied'
   | 'phone_screen'
   | 'technical_interview'
+  | 'team_interview'
   | 'onsite'
   | 'offer'
   | 'accepted'
@@ -11,6 +12,7 @@ export const JOB_STATUSES: JobStatus[] = [
   'applied',
   'phone_screen',
   'technical_interview',
+  'team_interview',
   'onsite',
   'offer',
   'accepted',
@@ -21,6 +23,7 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   applied: 'Applied',
   phone_screen: 'Phone Screen',
   technical_interview: 'Technical Interview',
+  team_interview: 'Team Interview',
   onsite: 'Onsite',
   offer: 'Offer',
   accepted: 'Accepted',
@@ -31,6 +34,7 @@ export const STATUS_COLORS: Record<JobStatus, string> = {
   applied: 'bg-blue-100 text-blue-700 border-blue-200',
   phone_screen: 'bg-purple-100 text-purple-700 border-purple-200',
   technical_interview: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  team_interview: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   onsite: 'bg-orange-100 text-orange-700 border-orange-200',
   offer: 'bg-amber-100 text-amber-700 border-amber-200',
   accepted: 'bg-green-100 text-green-700 border-green-200',
@@ -41,6 +45,7 @@ export const STATUS_DOT_COLORS: Record<JobStatus, string> = {
   applied: 'bg-blue-500',
   phone_screen: 'bg-purple-500',
   technical_interview: 'bg-cyan-500',
+  team_interview: 'bg-indigo-500',
   onsite: 'bg-orange-500',
   offer: 'bg-amber-500',
   accepted: 'bg-green-500',
@@ -71,6 +76,7 @@ export interface Job {
   interviewerLinkedIn?: string
   technicalQuestions?: TechnicalQuestion[]
   cvSnapshot?: string
+  resumeVersionId?: string
 }
 
 export interface TechnicalQuestion {
@@ -98,13 +104,14 @@ export interface TimelineEvent {
   createdAt: string
 }
 
-export type InterviewType = 'phone_screen' | 'technical_interview' | 'onsite'
+export type InterviewType = 'phone_screen' | 'technical_interview' | 'team_interview' | 'onsite'
 
-export const INTERVIEW_TYPES: InterviewType[] = ['phone_screen', 'technical_interview', 'onsite']
+export const INTERVIEW_TYPES: InterviewType[] = ['phone_screen', 'technical_interview', 'team_interview', 'onsite']
 
 export const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
   phone_screen: 'Phone Screen',
   technical_interview: 'Technical Interview',
+  team_interview: 'Team Interview',
   onsite: 'Onsite',
 }
 

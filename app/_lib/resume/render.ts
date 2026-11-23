@@ -1,0 +1,175 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { findTermSpan } from './coverage'
+import type { Evidence, Plan } from './types'
+
+const ESC: Record<string, string> = {
+  '\\': '\\textbackslash{}', '&': '\\&', '%': '\\%', $: '\\$', '#': '\\#', _: '\\_',
+  '{': '\\{', '}': '\\}', '~': '\\textasciitilde{}', '^': '\\textasciicircum{}',
+}
+
+export const escapeLatex = (s: string): string => s.replace(/[\\&%$#_{}~^]/g, c => ESC[c])
+
+/** Escape raw text, wrapping the first occurrence of each bold term in \textbf. */
+function boldText(text: string, terms: string[]): string {
+  const spans = terms
+    .map(t => ({ t, s: findTermSpan(text, t, true) }))
+    .filter((x): x is { t: string; s: { start: number; end: number } } => x.s !== null)
+    .sort((a, b) => a.s.start - b.s.start)
+  let out = ''
+  let pos = 0
+  for (const { t, s } of spans) {
+    if (s.start < pos) continue
+    out += escapeLatex(text.slice(pos, s.start)) + '\\textbf{' + escapeLatex(t) + '}'
+    pos = s.end
+  }
+  return out + escapeLatex(text.slice(pos))
+}
+
+/** Escape text that may carry `**x**` bold markup (summary, education notes, research and interest text). */
+const markupTex = (s: string) => escapeLatex(s).replace(/\*\*(.+?)\*\*/g, '\\textbf{$1}')
+
+/** Escape a URL for hyperref's \href: braces/backslash are percent-encoded, then `%` and `#` are backslash-escaped. */
+export const escapeHrefUrl = (url: string): string =>
+  url.replace(/[\\{}]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()).replace(/[%#]/g, c => '\\' + c)
+
+const href = (url: string, display: string) => `\\href{${escapeHrefUrl(url)}}{${escapeLatex(display)}}`
+const webUrl = (v: string) => (/^https?:\/\//i.test(v) ? v : `https://${v}`)
+
+function contactTex(c: Evidence['contact']): string {
+  const parts: string[] = []
+  if (c.phone) parts.push(escapeLatex(c.phone))
+  if (c.email) parts.push(href(`mailto:${c.email}`, c.email))
+  for (const v of [c.github, c.linkedin, c.website]) if (v) parts.push(href(webUrl(v), v))
+  return parts.join(' \\enspace|\\enspace ')
+}
+
+function nameTex(name: string): string {
+  const [first, ...rest] = name.trim().split(/\s+/)
+  const head = `{\\fontsize{38}{46}\\fontseries{l}\\selectfont ${escapeLatex(first)} }`
+  return rest.length ? `${head}%\n  {\\fontsize{38}{46}\\bfseries ${escapeLatex(rest.join(' '))}}` : head
+}
+
+const section = (title: string, body: string, gap = true) => `${gap ? '\\vspace{6pt}\n\n' : ''}\\cvsection{${title}}\n${body}`
+const itemize = (items: string[]) =>
+  items.length
+    ? `\\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt,parsep=0pt]\n${items.map(i => `  \\item ${i}\n`).join('\n')}\\end{itemize}`
+    : ''
+const header = (top: string, topRight: string, sub: string, subRight: string) =>
+  `\\noindent\\textbf{${escapeLatex(top)}}\\hfill\\textit{${escapeLatex(topRight)}}\\\\\n` +
+  `{\\scshape\\small ${escapeLatex(sub)}}\\hfill{\\small\\itshape ${escapeLatex(subRight)}}`
+/** Column spec for label/value tables: label at natural width, value column fills the line and wraps. */
+export const TABLE_COLSPEC = '@{}l@{\\quad}>{\\raggedright\\arraybackslash}X@{}'
+/** Two-column label/value table (skills, languages, interests); rows are [label, value] TeX. */
+const table = (rows: [string, string][]) =>
+  `\\begin{tabularx}{\\linewidth}{${TABLE_COLSPEC}}\n${rows.map(([l, v]) => `${l} & ${v} \\\\`).join('\n')}\n\\end{tabularx}`
+
+export function renderTex(ev: Evidence, plan: Plan): string {
+  const profile = ev.profiles.find(p => p.id === plan.profile)
+  const tpl = fs.readFileSync(path.join(process.cwd(), 'app/_lib/resume/template.tex'), 'utf8')
+  const boldFor = (id: string) => plan.bold.find(b => b.bulletId === id)?.terms ?? []
+
+  const expBlocks: string[] = []
+  for (const exp of ev.experiences) {
+    const sel = plan.experiences.find(e => e.experienceId === exp.id)
+    if (!sel) continue
+    const bullets = sel.bulletIds
+      .map(id => exp.bullets.find(b => b.id === id))
+      .filter((b): b is NonNullable<typeof b> => !!b)
+      .map(b => boldText(b.text, boldFor(b.id)))
+    expBlocks.push(header(exp.company, exp.location, exp.role, exp.dates) + '\n' + itemize(bullets))
+  }
+
+  const eduBlocks = ev.education.map(e =>
+    header(e.school, e.location, e.degree, e.dates) + (e.notes.length ? '\n' + itemize(e.notes.map(n => markupTex(n))) : ''))
+
+  const resBlocks = ev.research.map(r =>
+    `\\begin{tabular*}{\\linewidth}{@{}l@{\\extracolsep{\\fill}}r@{}}\n\\textbf{${escapeLatex(r.title)}} & \\textit{${escapeLatex(r.venue)}} \\\\\n\\end{tabular*}\n` +
+    `\\textbf{Topic: ${escapeLatex(r.topic)}} \\\\\n${markupTex(r.text)}`)
+
+  const skillRows: [string, string][] = []
+  for (const sg of plan.skillGroups) {
+    const g = ev.skillGroups.find(x => x.id === sg.groupId)
+    if (g) skillRows.push([`\\textbf{${escapeLatex(g.label)}}:`, sg.items.map(escapeLatex).join(', ')])
+  }
+
+  const slots: Record<string, string> = {
+    NAME: nameTex(ev.contact.name),
+    TITLE: escapeLatex(profile?.title ?? ''),
+    LOCATION: escapeLatex(ev.contact.location),
+    CONTACT: contactTex(ev.contact),
+    SUMMARY: profile?.summary ? section('Summary', markupTex(profile.summary), false) : '',
+    EXPERIENCE: expBlocks.length ? section('Work Experience', expBlocks.join('\n\n\\vspace{4pt}\n')) : '',
+    EDUCATION: eduBlocks.length ? section('Education', eduBlocks.join('\n\n')) : '',
+    RESEARCH: resBlocks.length ? section('Research Activity', '\\vspace{4pt}\n' + resBlocks.join('\n\n'), false) : '',
+    SKILLS: skillRows.length ? section('Skills', table(skillRows)) : '',
+    LANGUAGES: ev.languages.length ? section('Languages', table(ev.languages.map(l => [`\\textbf{${escapeLatex(l.name)}:}`, escapeLatex(l.level)]))) : '',
+    INTERESTS: ev.interests.length ? section('Interests', table(ev.interests.map(i => [`\\textbf{${escapeLatex(i.name)}:}`, markupTex(i.text)]))) : '',
+  }
+  return tpl.replace(/%%([A-Z]+)%%/g, (_, k: string) => slots[k] ?? '')
+}
+
+const stripBold = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1')
+
+export function renderPlainText(ev: Evidence, plan: Plan): string {
+  const profile = ev.profiles.find(p => p.id === plan.profile)
+  const lines: string[] = [ev.contact.name, profile?.title ?? '', ev.contact.location]
+  if (profile?.summary) lines.push(stripBold(profile.summary))
+  for (const exp of ev.experiences) {
+    const sel = plan.experiences.find(e => e.experienceId === exp.id)
+    if (!sel) continue
+    lines.push(`${exp.company}, ${exp.location} - ${exp.role} (${exp.dates})`)
+    for (const id of sel.bulletIds) {
+      const b = exp.bullets.find(x => x.id === id)
+      if (b) lines.push(b.text)
+    }
+  }
+  for (const e of ev.education) {
+    lines.push(`${e.school}, ${e.location} - ${e.degree} (${e.dates})`)
+    for (const n of e.notes) lines.push(stripBold(n))
+  }
+  for (const r of ev.research) lines.push(`${r.title} (${r.venue}) Topic: ${r.topic}. ${stripBold(r.text)}`)
+  for (const sg of plan.skillGroups) {
+    const g = ev.skillGroups.find(x => x.id === sg.groupId)
+    if (g) lines.push(`${g.label}: ${sg.items.join(', ')}`)
+  }
+  for (const l of ev.languages) lines.push(`${l.name}: ${l.level}`)
+  for (const i of ev.interests) lines.push(`${i.name}: ${stripBold(i.text)}`)
+  return lines.filter(l => l !== '').join('\n')
+}
+
+const TEX_SYMBOLS: Record<string, string> = {
+  textbackslash: '\\', textasciitilde: '~', textasciicircum: '^', textperiodcentered: '·',
+  textbar: '|', enspace: ' ', quad: ' ', qquad: ' ',
+}
+/** Commands whose arguments are layout values, not text: dropped together with their {…} arguments. */
+const DROP_WITH_ARGS = /\\(?:[vh]space\*?|fontsize|setlength|definecolor|color|kern|leaders|rule|hrule|vrule|begin|end|includegraphics)\s*(?:\[[^\]]*\]\s*)?(?:\{[^{}]*\}\s*)*/g
+
+/**
+ * Heuristic LaTeX → plain text for keyword coverage on manually edited CVs. Not a TeX parser:
+ * keeps the text inside command arguments, drops preamble, comments and layout commands.
+ */
+export function texToPlainText(tex: string): string {
+  const b = tex.indexOf('\\begin{document}')
+  const e = tex.lastIndexOf('\\end{document}')
+  let s = b >= 0 ? tex.slice(b + '\\begin{document}'.length, e > b ? e : undefined) : tex
+  s = s.replace(/\\\\(?:\[[^\]]*\])?/g, '\n')
+  // Escaped specials → private-use placeholders so comment/brace stripping leaves them alone.
+  const specials = '&%$#_{}'
+  s = s.replace(/\\([&%$#_{}])/g, (_, c: string) => String.fromCharCode(0xe000 + specials.indexOf(c)))
+  s = s.replace(/%.*$/gm, '')
+  s = s.replace(/\\href\s*\{[^{}]*\}/g, '')
+  s = s.replace(DROP_WITH_ARGS, ' ')
+  // Symbol commands also go through a placeholder, so e.g. a produced "\\" is not re-read as a command.
+  const syms: string[] = []
+  s = s.replace(/\\([A-Za-z]+)(?:\{\})?/g, (m, name: string) =>
+    name in TEX_SYMBOLS ? String.fromCharCode(0xe100 + syms.push(TEX_SYMBOLS[name]) - 1) : m)
+  s = s.replace(/\\[A-Za-z]+\*?(?=\{)/g, '') // \textbf{x} → {x}: no space, so mid-word commands don't split words
+  s = s.replace(/\\[A-Za-z]+\*?/g, ' ')
+  // Optional args like [leftmargin=*] or a bare length like [4pt]; any other bracketed text is content.
+  s = s.replace(/\[[^\]\n]*\]/g, (m) => (m.includes('=') || /^\[\s*-?[\d.]+\s*(?:pt|em|ex|cm|mm|in|sp)\s*\]$/.test(m) ? ' ' : m))
+  s = s.replace(/[{}]/g, '').replace(/&/g, ' ').replace(/~/g, ' ')
+  s = s.replace(/[-]/g, (c) => specials[c.charCodeAt(0) - 0xe000])
+  s = s.replace(/[-]/g, (c) => syms[c.charCodeAt(0) - 0xe100] ?? '')
+  return s.split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n')
+}

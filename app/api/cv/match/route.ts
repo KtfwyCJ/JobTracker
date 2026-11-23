@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { EvidenceError, loadEvidence } from '../../../_lib/resume/evidence'
+import { buildFullPlan } from '../../../_lib/resume/base'
+import { renderPlainText } from '../../../_lib/resume/render'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -15,10 +18,21 @@ export async function POST(request: Request) {
     if (tailoredCv) {
       cv = tailoredCv
     } else {
-      try {
-        cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
-      } catch {
-        return Response.json({ error: 'CV.md not found in project root. Please add your CV as CV.md.' }, { status: 500 })
+      const evidencePath = join(process.cwd(), 'evidence', 'cv.yaml')
+      if (existsSync(evidencePath)) {
+        try {
+          const ev = loadEvidence(evidencePath)
+          cv = renderPlainText(ev, buildFullPlan(ev, 'ai-engineer'))
+        } catch (e) {
+          if (e instanceof EvidenceError) return Response.json({ error: e.message }, { status: 500 })
+          throw e
+        }
+      } else {
+        try {
+          cv = readFileSync(join(process.cwd(), 'CV.md'), 'utf-8')
+        } catch {
+          return Response.json({ error: 'CV.md not found in project root. Please add your CV as CV.md.' }, { status: 500 })
+        }
       }
     }
 

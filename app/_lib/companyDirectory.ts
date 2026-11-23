@@ -30,7 +30,7 @@ export function matchJobToCompany(job: JobPosting, entry: CompanyDirectoryEntry)
 }
 
 /** ATS platforms the provider registry can pull jobs from directly. */
-export const SUPPORTED_ATS = /greenhouse|lever|ashby|smart\s*recruiters|personio/i
+export const SUPPORTED_ATS = /greenhouse|lever|ashby|smart\s*recruiters|personio|pinpoint/i
 
 export function toAtsInput(
   entry: CompanyDirectoryEntry

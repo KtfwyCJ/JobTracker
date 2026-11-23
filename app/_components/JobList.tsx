@@ -29,6 +29,7 @@ const FILTER_CHIPS: { id: JobStatus | 'all'; label: string }[] = [
   { id: 'applied', label: 'Applied' },
   { id: 'phone_screen', label: 'Phone' },
   { id: 'technical_interview', label: 'Tech' },
+  { id: 'team_interview', label: 'Team' },
   { id: 'onsite', label: 'Onsite' },
   { id: 'offer', label: 'Offer' },
   { id: 'accepted', label: 'Accepted' },

@@ -17,6 +17,7 @@ const STATUS_HEX: Record<JobStatus, string> = {
   applied: '#3b82f6',
   phone_screen: '#a855f7',
   technical_interview: '#06b6d4',
+  team_interview: '#6366f1',
   onsite: '#f97316',
   offer: '#f59e0b',
   accepted: '#22c55e',
@@ -25,7 +26,7 @@ const STATUS_HEX: Record<JobStatus, string> = {
 
 // Ordered pipeline stages for the funnel. `accepted` / `rejected` are terminal
 // outcomes, not stages — they're reported separately.
-const PIPELINE_STAGES: JobStatus[] = ['applied', 'phone_screen', 'technical_interview', 'onsite', 'offer']
+const PIPELINE_STAGES: JobStatus[] = ['applied', 'phone_screen', 'technical_interview', 'team_interview', 'onsite', 'offer']
 const STAGE_INDEX: Partial<Record<JobStatus, number>> = Object.fromEntries(
   PIPELINE_STAGES.map((s, i) => [s, i])
 )
@@ -291,7 +292,8 @@ export default function StatsPanel() {
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-zinc-400">
             <span>Applied → Phone: <strong className="text-zinc-600">{conversionRate('applied', 'phone_screen')}</strong></span>
             <span>Phone → Tech: <strong className="text-zinc-600">{conversionRate('phone_screen', 'technical_interview')}</strong></span>
-            <span>Tech → Onsite: <strong className="text-zinc-600">{conversionRate('technical_interview', 'onsite')}</strong></span>
+            <span>Tech → Team: <strong className="text-zinc-600">{conversionRate('technical_interview', 'team_interview')}</strong></span>
+            <span>Team → Onsite: <strong className="text-zinc-600">{conversionRate('team_interview', 'onsite')}</strong></span>
             <span>Onsite → Offer: <strong className="text-zinc-600">{conversionRate('onsite', 'offer')}</strong></span>
           </div>
           <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-400">

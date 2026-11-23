@@ -30,11 +30,11 @@ import type {
   TimelineEvent,
   WaitlistEntry,
 } from './types'
-import { loadData, saveData } from './storage'
+import { getSyncChannel, loadData, saveData } from './storage'
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 
-type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string }
+type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string; resumeVersionId?: string }
 
 type Action =
   | { type: 'LOAD'; payload: AppData }
@@ -98,7 +98,7 @@ function reducer(state: AppData, action: Action): AppData {
       }
 
     case 'ADD_JOB': {
-      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
+      const { companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -125,6 +125,7 @@ function reducer(state: AppData, action: Action): AppData {
         matchLevel,
         analysis,
         cvSnapshot,
+        resumeVersionId,
       }
 
       const initialEvent: TimelineEvent = {
@@ -145,7 +146,7 @@ function reducer(state: AppData, action: Action): AppData {
     }
 
     case 'UPDATE_JOB': {
-      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot } = action.payload
+      const { jobId, companyName, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId } = action.payload
       const now = new Date().toISOString()
 
       let company = state.companies.find(
@@ -162,7 +163,7 @@ function reducer(state: AppData, action: Action): AppData {
         companies,
         jobs: state.jobs.map((j) =>
           j.id === jobId
-            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot }
+            ? { ...j, companyId: company!.id, title, description, location, appliedAt, requiresGerman, jobPostingId, jobLink, matchLevel, analysis, cvSnapshot, resumeVersionId }
             : j
         ),
       }
@@ -186,6 +187,7 @@ function reducer(state: AppData, action: Action): AppData {
         applied: 'Applied',
         phone_screen: 'Phone Screen',
         technical_interview: 'Technical Interview',
+        team_interview: 'Team Interview',
         onsite: 'Onsite',
         offer: 'Offer',
         accepted: 'Accepted',
@@ -721,7 +723,7 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue | null>(null)
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [data, dispatch] = useReducer(reducer, {
+  const [data, rawDispatch] = useReducer(reducer, {
     companies: [],
     jobs: [],
     timelineEvents: [],
@@ -737,35 +739,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [editingJobId, setEditingJobId] = useState<string | null>(null)
   const [search, setSearch] = useState<string>('')
   const [starFilter, setStarFilter] = useState<number | null>(null)
-  const hydrated = useRef(false)
+  const [hydrated, setHydrated] = useState(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Tracks whether the user made any edit before the authoritative file fetch
+  // below resolved, so that fetch doesn't clobber it with stale data.
+  const editedDuringHydrationRef = useRef(false)
+  // Set when state was replaced by another tab's write, so we don't re-save it.
+  const skipNextSaveRef = useRef(false)
+
+  function dispatch(action: Action) {
+    if (action.type !== 'LOAD') editedDuringHydrationRef.current = true
+    rawDispatch(action)
+  }
 
   useEffect(() => {
-    // Show localStorage data immediately so the UI is never blank
-    dispatch({ type: 'LOAD', payload: loadData() })
-
-    // Then fetch the authoritative file-based data
-    fetch('/api/data')
+    // Show locally cached data first so the UI is never blank, then fetch the
+    // authoritative file-based data. Sequenced so the (async) cache read can
+    // never land after — and clobber — the file data.
+    loadData()
+      .then(cached => {
+        if (!editedDuringHydrationRef.current) rawDispatch({ type: 'LOAD', payload: cached })
+      })
+      .then(() => fetch('/api/data'))
       .then(r => r.ok ? r.json() : null)
       .then((fileData: AppData | null) => {
-        // Only overwrite localStorage data if the file actually exists (r.ok)
-        // A 404 means first run — keep localStorage as-is
-        if (fileData !== null) {
-          dispatch({ type: 'LOAD', payload: fileData })
+        // Only overwrite cached data if the file actually exists (r.ok)
+        // A 404 means first run — keep the cache as-is.
+        // If the user already made edits while this fetch was in flight,
+        // trust those edits instead of stomping them with stale file data.
+        if (fileData !== null && !editedDuringHydrationRef.current) {
+          rawDispatch({ type: 'LOAD', payload: fileData })
         }
       })
       .catch(() => {
-        // Server unavailable — localStorage data is already loaded
+        // Server unavailable — cached data is already loaded
       })
       .finally(() => {
-        hydrated.current = true
+        setHydrated(true)
       })
   }, [])
 
+  // Keep multiple open tabs in sync. Each tab holds its own in-memory copy and
+  // persists the whole thing on every change, so without this a save in one tab
+  // overwrites records another tab saved since this one loaded.
   useEffect(() => {
-    if (!hydrated.current) return
+    const channel = getSyncChannel()
+    function onMessage() {
+      loadData().then(fresh => {
+        // The cache is now newer than the file fetched at startup.
+        editedDuringHydrationRef.current = true
+        // The other tab already persisted this; don't echo it back.
+        skipNextSaveRef.current = true
+        rawDispatch({ type: 'LOAD', payload: fresh })
+      })
+    }
+    channel.addEventListener('message', onMessage)
+    return () => channel.removeEventListener('message', onMessage)
+  }, [])
 
-    saveData(data)
+  useEffect(() => {
+    if (!hydrated) return
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false
+      return
+    }
+
+    // A failed local save must not block the data.json backup below.
+    saveData(data).catch(err => console.error('[cache] Failed to save locally:', err))
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
@@ -775,7 +815,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(data),
       }).catch(err => console.error('[backup] Failed to sync data.json:', err))
     }, 500)
-  }, [data])
+  }, [data, hydrated])
 
   function addJob(payload: JobFields) {
     dispatch({ type: 'ADD_JOB', payload })
