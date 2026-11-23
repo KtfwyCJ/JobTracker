@@ -306,6 +306,40 @@ export default function StatsPanel() {
           </p>
         </div>
 
+        {/* Application activity */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <p className="mb-4 text-sm font-semibold text-zinc-700">
+            Application Activity <span className="font-normal text-zinc-400">(last 8 weeks)</span>
+          </p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={activityData} barSize={24}>
+              <XAxis
+                dataKey="week"
+                tick={{ fontSize: 10, fill: '#a1a1aa' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: '#a1a1aa' }}
+                axisLine={false}
+                tickLine={false}
+                width={20}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ fill: '#f4f4f5' }}
+                contentStyle={{
+                  borderRadius: 8,
+                  border: '1px solid #e4e4e7',
+                  fontSize: 12,
+                  boxShadow: '0 1px 4px rgba(0,0,0,.06)',
+                }}
+              />
+              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Jobs" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
         {/* Dream Jobs */}
         {dreamJobs.length > 0 && (
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -417,40 +451,6 @@ export default function StatsPanel() {
               })}
             </div>
           )}
-        </div>
-
-        {/* Application activity */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <p className="mb-4 text-sm font-semibold text-zinc-700">
-            Application Activity <span className="font-normal text-zinc-400">(last 8 weeks)</span>
-          </p>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={activityData} barSize={24}>
-              <XAxis
-                dataKey="week"
-                tick={{ fontSize: 10, fill: '#a1a1aa' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: '#a1a1aa' }}
-                axisLine={false}
-                tickLine={false}
-                width={20}
-                allowDecimals={false}
-              />
-              <Tooltip
-                cursor={{ fill: '#f4f4f5' }}
-                contentStyle={{
-                  borderRadius: 8,
-                  border: '1px solid #e4e4e7',
-                  fontSize: 12,
-                  boxShadow: '0 1px 4px rgba(0,0,0,.06)',
-                }}
-              />
-              <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Jobs" />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
 
         {/* Status breakdown */}

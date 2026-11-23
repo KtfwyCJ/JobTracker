@@ -36,7 +36,7 @@ import { getSyncChannel, loadData, saveData } from './storage'
 
 type JobFields = { companyName: string; title: string; description: string; location: string; appliedAt: string; requiresGerman: boolean; jobPostingId?: string; jobLink?: string; matchLevel?: number; analysis?: string; cvSnapshot?: string; resumeVersionId?: string }
 
-type Action =
+export type Action =
   | { type: 'LOAD'; payload: AppData }
   | { type: 'ADD_JOB'; payload: JobFields }
   | { type: 'UPDATE_JOB'; payload: { jobId: string } & JobFields }
@@ -82,6 +82,16 @@ type Action =
   | { type: 'DELETE_CALENDAR_EVENT'; payload: { id: string } }
 
 // ── Reducer ───────────────────────────────────────────────────────────────────
+
+/**
+ * State after loading `loaded` (cache or data.json) while `pending` actions were dispatched before
+ * loading finished. Those actions are replayed on top of the loaded data instead of either side
+ * winning: a page that auto-dispatches on mount (e.g. /learn creating today's log) must never cause
+ * the loaded data to be thrown away — that once saved an empty store over data.json.
+ */
+export function applyLoaded(loaded: AppData, pending: Action[]): AppData {
+  return pending.reduce(reducer, reducer(loaded, { type: 'LOAD', payload: loaded }))
+}
 
 function reducer(state: AppData, action: Action): AppData {
   switch (action.type) {
@@ -740,16 +750,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState<string>('')
   const [starFilter, setStarFilter] = useState<number | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const hydratedRef = useRef(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Tracks whether the user made any edit before the authoritative file fetch
-  // below resolved, so that fetch doesn't clobber it with stale data.
-  const editedDuringHydrationRef = useRef(false)
+  // Actions dispatched before loading finished. They are applied right away (so the UI responds) and
+  // replayed on top of every data set loaded afterwards, so neither the edits nor the loaded data are lost.
+  const pendingRef = useRef<Action[]>([])
+  // Set when another tab saved during loading: the cache is then newer than data.json.
+  const cacheNewerRef = useRef(false)
   // Set when state was replaced by another tab's write, so we don't re-save it.
   const skipNextSaveRef = useRef(false)
 
   function dispatch(action: Action) {
-    if (action.type !== 'LOAD') editedDuringHydrationRef.current = true
+    if (!hydratedRef.current && action.type !== 'LOAD') pendingRef.current.push(action)
     rawDispatch(action)
+  }
+
+  function loadWithPending(payload: AppData) {
+    rawDispatch({ type: 'LOAD', payload: applyLoaded(payload, hydratedRef.current ? [] : pendingRef.current) })
   }
 
   useEffect(() => {
@@ -758,23 +775,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // never land after — and clobber — the file data.
     loadData()
       .then(cached => {
-        if (!editedDuringHydrationRef.current) rawDispatch({ type: 'LOAD', payload: cached })
+        if (!cacheNewerRef.current) loadWithPending(cached)
       })
       .then(() => fetch('/api/data'))
       .then(r => r.ok ? r.json() : null)
       .then((fileData: AppData | null) => {
         // Only overwrite cached data if the file actually exists (r.ok)
         // A 404 means first run — keep the cache as-is.
-        // If the user already made edits while this fetch was in flight,
-        // trust those edits instead of stomping them with stale file data.
-        if (fileData !== null && !editedDuringHydrationRef.current) {
-          rawDispatch({ type: 'LOAD', payload: fileData })
-        }
+        // Edits made while loading are replayed on top (loadWithPending), not lost.
+        if (fileData !== null && !cacheNewerRef.current) loadWithPending(fileData)
       })
       .catch(() => {
         // Server unavailable — cached data is already loaded
       })
       .finally(() => {
+        hydratedRef.current = true
+        pendingRef.current = []
         setHydrated(true)
       })
   }, [])
@@ -787,10 +803,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     function onMessage() {
       loadData().then(fresh => {
         // The cache is now newer than the file fetched at startup.
-        editedDuringHydrationRef.current = true
+        cacheNewerRef.current = true
         // The other tab already persisted this; don't echo it back.
         skipNextSaveRef.current = true
-        rawDispatch({ type: 'LOAD', payload: fresh })
+        loadWithPending(fresh)
       })
     }
     channel.addEventListener('message', onMessage)
