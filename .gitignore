@@ -35,6 +35,7 @@ yarn-error.log*
 
 # personal job data backup (do not commit)
 data.json
+data.json.bak
 
 # generated company -> ATS platform mapping cache (regenerate via Watchlist "Re-detect")
 company-ats-cache.json
