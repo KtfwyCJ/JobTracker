@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useStore } from '../_lib/store'
-import { STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS, type JobStatus } from '../_lib/types'
+import { formatAppliedDate, groupJobsByCompany, type CompanyGroup } from '../_lib/jobGroups'
+import { STATUS_COLORS, STATUS_DOT_COLORS, STATUS_LABELS, type Job, type JobStatus } from '../_lib/types'
 import StarRating from './StarRating'
 import ChevronIcon from './ChevronIcon'
 
@@ -36,41 +37,119 @@ const FILTER_CHIPS: { id: JobStatus | 'all'; label: string }[] = [
   { id: 'rejected', label: 'Rejected' },
 ]
 
+/** Memoised so selecting a job re-renders only the previously and newly selected cards. */
+const JobCard = memo(function JobCard({ job, isSelected, onSelect }: {
+  job: Job; isSelected: boolean; onSelect: (id: string) => void
+}) {
+  const dotColor = STATUS_DOT_COLORS[job.status]
+  return (
+    <button
+      onClick={() => onSelect(job.id)}
+      className={`w-full rounded-lg border p-2.5 text-left shadow-sm transition-all ${
+        isSelected
+          ? 'border-zinc-900 bg-zinc-900 shadow-md'
+          : 'border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-md'
+      }`}
+    >
+      {/* Top row: status dot + title + badge */}
+      <div className="flex items-start gap-2">
+        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+        <span className={`flex-1 text-[11.5px] font-semibold leading-snug ${isSelected ? 'text-white' : 'text-zinc-900'}`}>
+          {job.title}
+        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          {job.requiresGerman && (
+            <span className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+              DE
+            </span>
+          )}
+          <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : STATUS_COLORS[job.status]}`}>
+            {STATUS_LABELS[job.status]}
+          </span>
+        </div>
+      </div>
+
+      {/* Bottom row: date + stars */}
+      <div className="mt-1.5 flex items-center justify-between gap-2 pl-4">
+        <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-400'}`}>
+          {formatAppliedDate(job.appliedAt)}
+        </span>
+        {job.matchLevel !== undefined && (
+          <StarRating value={job.matchLevel} readOnly />
+        )}
+      </div>
+    </button>
+  )
+})
+
+/**
+ * Memoised per company. `selectedId` is only passed to the group that contains the selected job,
+ * so a selection change skips every other company entirely.
+ */
+const CompanySection = memo(function CompanySection({ group, isCollapsed, selectedId, onToggle, onSelect }: {
+  group: CompanyGroup; isCollapsed: boolean; selectedId: string | null
+  onToggle: (id: string) => void; onSelect: (id: string) => void
+}) {
+  const { company, jobs } = group
+  const theme = companyTheme(company.name)
+  const initial = company.name.charAt(0).toUpperCase()
+  return (
+    <div className="mb-1">
+      {/* Company header */}
+      <button
+        onClick={() => onToggle(company.id)}
+        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-zinc-50 transition-colors"
+      >
+        {/* Colored initial avatar */}
+        <span
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+          style={{ background: theme.bg, color: theme.text }}
+        >
+          {initial}
+        </span>
+        <span className="flex-1 text-left text-xs font-bold text-zinc-700 truncate">
+          {company.name}
+        </span>
+        <span className="text-[10px] text-zinc-400">{jobs.length}</span>
+        <ChevronIcon open={!isCollapsed} />
+      </button>
+
+      {/* Job cards */}
+      {!isCollapsed && (
+        <div className="mt-0.5 flex flex-col gap-1 px-2 pb-1">
+          {jobs.map((job) => (
+            <JobCard key={job.id} job={job} isSelected={selectedId === job.id} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
 export default function JobList() {
   const { data, selectedJobId, setSelectedJobId, search, setSearch, starFilter, setStarFilter } = useStore()
   const [collapsedCompanies, setCollapsedCompanies] = useState<Set<string>>(new Set())
   const [filterStatus, setFilterStatus] = useState<JobStatus | 'all'>('all')
 
-  function toggleCompany(id: string) {
+  const toggleCompany = useCallback((id: string) => {
     setCollapsedCompanies((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
   function handleChipClick(id: JobStatus | 'all') {
     setStarFilter(null)
     setFilterStatus((prev) => (prev === id ? 'all' : id))
   }
 
-  const q = search.toLowerCase()
-
-  function jobMatchesFilters(j: { companyId: string; status: JobStatus; title: string; matchLevel?: number }, companyName: string) {
-    if (filterStatus !== 'all' && j.status !== filterStatus) return false
-    if (starFilter !== null && j.matchLevel !== starFilter) return false
-    if (!q) return true
-    return companyName.toLowerCase().includes(q) || j.title.toLowerCase().includes(q)
-  }
-
-  const filteredCompanies = data.companies
-    .filter((c) => data.jobs.some((j) => j.companyId === c.id && jobMatchesFilters(j, c.name)))
-    .sort((a, b) => {
-      const latestA = data.jobs.filter((j) => j.companyId === a.id).reduce((m, j) => j.createdAt > m ? j.createdAt : m, '')
-      const latestB = data.jobs.filter((j) => j.companyId === b.id).reduce((m, j) => j.createdAt > m ? j.createdAt : m, '')
-      return latestB.localeCompare(latestA)
-    })
+  // Recomputed only when the data or filters change — not when a job is selected.
+  const filteredCompanies = useMemo(
+    () => groupJobsByCompany(data.companies, data.jobs, { status: filterStatus, star: starFilter, search }),
+    [data.companies, data.jobs, filterStatus, starFilter, search],
+  )
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r border-zinc-200 bg-white">
@@ -125,91 +204,16 @@ export default function JobList() {
             {search || filterStatus !== 'all' ? 'No results' : 'No jobs yet — click + Add Job'}
           </p>
         )}
-        {filteredCompanies.map((company) => {
-          const jobs = data.jobs
-            .filter((j) => j.companyId === company.id && jobMatchesFilters(j, company.name))
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-
-          const isCollapsed = collapsedCompanies.has(company.id)
-          const theme = companyTheme(company.name)
-          const initial = company.name.charAt(0).toUpperCase()
-
-          return (
-            <div key={company.id} className="mb-1">
-              {/* Company header */}
-              <button
-                onClick={() => toggleCompany(company.id)}
-                className="flex w-full items-center gap-2 px-3 py-2 hover:bg-zinc-50 transition-colors"
-              >
-                {/* Colored initial avatar */}
-                <span
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                  style={{ background: theme.bg, color: theme.text }}
-                >
-                  {initial}
-                </span>
-                <span className="flex-1 text-left text-xs font-bold text-zinc-700 truncate">
-                  {company.name}
-                </span>
-                <span className="text-[10px] text-zinc-400">{jobs.length}</span>
-                <ChevronIcon open={!isCollapsed} />
-              </button>
-
-              {/* Job cards */}
-              {!isCollapsed && (
-                <div className="mt-0.5 flex flex-col gap-1 px-2 pb-1">
-                  {jobs.map((job) => {
-                    const isSelected = selectedJobId === job.id
-                    const dotColor = STATUS_DOT_COLORS[job.status]
-
-                    return (
-                      <button
-                        key={job.id}
-                        onClick={() => setSelectedJobId(job.id)}
-                        className={`w-full rounded-lg border p-2.5 text-left shadow-sm transition-all ${
-                          isSelected
-                            ? 'border-zinc-900 bg-zinc-900 shadow-md'
-                            : 'border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-md'
-                        }`}
-                      >
-                        {/* Top row: status dot + title + badge */}
-                        <div className="flex items-start gap-2">
-                          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-                          <span className={`flex-1 text-[11.5px] font-semibold leading-snug ${isSelected ? 'text-white' : 'text-zinc-900'}`}>
-                            {job.title}
-                          </span>
-                          <div className="flex shrink-0 items-center gap-1">
-                            {job.requiresGerman && (
-                              <span className={`rounded border px-1.5 py-0.5 text-[9px] font-medium ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
-                                DE
-                              </span>
-                            )}
-                            <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold ${isSelected ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : STATUS_COLORS[job.status]}`}>
-                              {STATUS_LABELS[job.status]}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Bottom row: date + stars */}
-                        <div className="mt-1.5 flex items-center justify-between gap-2 pl-4">
-                          <span className={`text-[10px] ${isSelected ? 'text-zinc-300' : 'text-zinc-400'}`}>
-                            {new Date(job.appliedAt + 'T00:00:00').toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </span>
-                          {job.matchLevel !== undefined && (
-                            <StarRating value={job.matchLevel} readOnly />
-                          )}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+        {filteredCompanies.map((group) => (
+          <CompanySection
+            key={group.company.id}
+            group={group}
+            isCollapsed={collapsedCompanies.has(group.company.id)}
+            selectedId={selectedJobId !== null && group.jobs.some((j) => j.id === selectedJobId) ? selectedJobId : null}
+            onToggle={toggleCompany}
+            onSelect={setSelectedJobId}
+          />
+        ))}
       </nav>
     </aside>
   )
