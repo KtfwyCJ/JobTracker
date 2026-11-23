@@ -173,7 +173,7 @@ export default function Page({ params, searchParams }: {
             <div className={card}>
               <SectionTitle>LaTeX 源码</SectionTitle>
               <LatexEditor
-                value={manual ? texDraft : view.tex}
+                value={manual && !isFinal ? texDraft : view.tex}
                 manual={manual}
                 isFinal={isFinal}
                 dirty={dirty}
@@ -241,7 +241,7 @@ export default function Page({ params, searchParams }: {
                 {!isFinal && (
                   <button
                     className={btnPrimary}
-                    disabled={!view.canFinalize || pending || busy !== null}
+                    disabled={!view.canFinalize || pending || busy !== null || dirty || saving}
                     onClick={() => void finalize()}
                   >
                     {busy === 'finalize' ? '定稿中…' : '确认定稿'}

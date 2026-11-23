@@ -32,7 +32,8 @@ function Status({ manual, dirty, saving, compileError }: Pick<Props, 'manual' | 
 }
 
 export default function LatexEditor(p: Props) {
-  const editable = p.manual && !p.isFinal
+  // Not editable while start/discard is in flight: an edit then would schedule a save that re-enters manual mode.
+  const editable = p.manual && !p.isFinal && !p.switching
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault()
@@ -51,7 +52,7 @@ export default function LatexEditor(p: Props) {
             {p.switching ? '处理中…' : '开始手动编辑'}
           </button>
         )}
-        {editable && (
+        {p.manual && !p.isFinal && (
           <>
             <button className={btnDark} disabled={p.saving || p.switching} onClick={p.onSaveNow}>编译 ⌘S</button>
             <button className={btn} disabled={p.switching} onClick={onDiscard}>{p.switching ? '处理中…' : '放弃手改'}</button>

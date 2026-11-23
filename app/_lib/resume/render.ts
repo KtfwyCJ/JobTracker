@@ -166,7 +166,8 @@ export function texToPlainText(tex: string): string {
     name in TEX_SYMBOLS ? String.fromCharCode(0xe100 + syms.push(TEX_SYMBOLS[name]) - 1) : m)
   s = s.replace(/\\[A-Za-z]+\*?(?=\{)/g, '') // \textbf{x} → {x}: no space, so mid-word commands don't split words
   s = s.replace(/\\[A-Za-z]+\*?/g, ' ')
-  s = s.replace(/\[[^\]\n]*\]/g, (m) => (/[=]|pt|em|ex/.test(m) ? ' ' : m)) // optional args like [leftmargin=*]
+  // Optional args like [leftmargin=*] or a bare length like [4pt]; any other bracketed text is content.
+  s = s.replace(/\[[^\]\n]*\]/g, (m) => (m.includes('=') || /^\[\s*-?[\d.]+\s*(?:pt|em|ex|cm|mm|in|sp)\s*\]$/.test(m) ? ' ' : m))
   s = s.replace(/[{}]/g, '').replace(/&/g, ' ').replace(/~/g, ' ')
   s = s.replace(/[-]/g, (c) => specials[c.charCodeAt(0) - 0xe000])
   s = s.replace(/[-]/g, (c) => syms[c.charCodeAt(0) - 0xe100] ?? '')

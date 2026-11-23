@@ -227,8 +227,13 @@ export function useVersion(id: string) {
     reqRef.current++
     setSaving(false)
     setBusy('manual')
+    const req = reqRef.current
     try {
       const v = await call<VersionView>(`/api/resume/${id}`, { method: 'PATCH', body: JSON.stringify({ manualTex }) })
+      // A save scheduled meanwhile would undo this switch; drop it, and drop this response if superseded.
+      if (texTimerRef.current) clearTimeout(texTimerRef.current)
+      texTimerRef.current = null
+      if (req !== reqRef.current) return
       apply(v)
       syncTex(v)
       setError(null)

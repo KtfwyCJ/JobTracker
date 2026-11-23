@@ -154,6 +154,10 @@ describe('texToPlainText', () => {
     expect(t).not.toMatch(/6pt|3pt|itemize/); expect(t).toContain('A')
   })
   it('command inside a word does not split it', () => expect(texToPlainText(doc('full-\\textbf{stack} and a\\textbackslash{}b'))).toContain('full-stack and a\\b'))
+  it('keeps ordinary bracketed text, drops option/length brackets', () => {
+    const t = texToPlainText(doc('Built dashboards [Next.js, TypeScript] \\begin{itemize}[leftmargin=*]\\item x\\end{itemize}\\\\[4pt] end'))
+    expect(t).toContain('[Next.js, TypeScript]'); expect(t).not.toMatch(/leftmargin|4pt/)
+  })
   it('no \\begin{document} → whole input', () => expect(texToPlainText('just \\textit{text}')).toContain('just text'))
   it('every keyword covered by renderPlainText is covered by texToPlainText(renderTex)', () => {
     const kws = ['Node.js', 'React', 'Vue.js', 'C++', 'Python', '50%']
