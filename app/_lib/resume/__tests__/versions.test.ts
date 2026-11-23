@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEvidence } from '../evidence'
@@ -10,6 +10,7 @@ import type { JdAnalysis, LlmPlan } from '../types'
 import {
   makeVersionId, versionDir, createVersion, readVersionView, updateVersion, finalizeVersion, rebuild,
   VersionIdError, VersionFrozenError, VersionNotFoundError, FinalizeNotAllowedError, PlanInvalidError,
+  ManualModeError, BadInputError, MAX_MANUAL_TEX,
 } from '../versions'
 
 const yamlText = readFileSync(join(__dirname, '../__fixtures__/evidence.yaml'), 'utf8')
@@ -27,13 +28,17 @@ const llmPlan: LlmPlan = {
 let fill: number | null = 1.0
 let fail = false
 let warnings: string[] = []
+let lastTex: string | null = null
+/** Fake pdflatex: on success "produces" a PDF whose content is the tex, so tests can tell which build is on disk. */
 const compile = async (tex: string, dir: string) => {
+  lastTex = tex
   if (fail) throw new Error('boom')
-  void tex
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'cv.pdf'), tex)
   return { pdfPath: join(dir, 'cv.pdf'), pageFill: fill, warnings }
 }
 let root: string
-beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'rv-')); fill = 1.0; fail = false; warnings = [] })
+beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'rv-')); fill = 1.0; fail = false; warnings = []; lastTex = null })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 const mk = () => createVersion({ jd, llmPlan }, yamlText, root, { compile })
 
@@ -172,5 +177,84 @@ describe('finalize gates', () => {
     const all = diffPlans(ev, buildBasePlan(ev, 'senior-fullstack'), llmPlan).map((s) => s.id)
     const id = await createVersion({ jd, llmPlan, accepted: [all[0], 'gone:xyz'] }, yamlText, root, { compile })
     expect(readVersionView(id, root).accepted).toEqual([all[0]])
+  })
+})
+
+describe('manual mode', () => {
+  const pdfOf = (id: string) => readFileSync(join(versionDir(id, root), 'cv.pdf'), 'utf8')
+  it('non-manual view exposes generatedTex as tex and compiles it', async () => {
+    const id = await mk()
+    const v = readVersionView(id, root)
+    expect(v.manual).toBe(false); expect(v.tex).toBe(v.generatedTex); expect(v.manualDiff).toEqual([])
+    expect(pdfOf(id)).toBe(v.generatedTex)
+  })
+  it('manualTex persists and view.tex returns it; generatedTex unchanged', async () => {
+    const id = await mk(); const gen = readVersionView(id, root).generatedTex
+    await updateVersion(id, { manualTex: gen + '\n% edited' }, root, { compile })
+    const v = readVersionView(id, root)
+    expect(v.manual).toBe(true); expect(v.tex).toBe(gen + '\n% edited'); expect(v.generatedTex).toBe(gen)
+    expect(v.manualEditedAt).toBeTruthy()
+    expect(lastTex).toBe(gen + '\n% edited'); expect(pdfOf(id)).toBe(gen + '\n% edited')
+    expect(v.manualDiff.length).toBe(1)
+  })
+  it('accepted / llmPlan patches are refused in manual mode', async () => {
+    const id = await mk(); await updateVersion(id, { manualTex: 'x' }, root, { compile })
+    await expect(updateVersion(id, { accepted: [] }, root, { compile })).rejects.toThrow(ManualModeError)
+    await expect(updateVersion(id, { llmPlan }, root, { compile })).rejects.toThrow(ManualModeError)
+  })
+  it('manualTex: null discards and recompiles the generated tex', async () => {
+    const id = await mk(); await updateVersion(id, { manualTex: 'x' }, root, { compile })
+    await updateVersion(id, { manualTex: null }, root, { compile })
+    const v = readVersionView(id, root)
+    expect(v.manual).toBe(false); expect(v.manualDiff).toEqual([]); expect(v.manualEditedAt).toBeUndefined()
+    expect(lastTex).toBe(v.generatedTex); expect(pdfOf(id)).toBe(v.generatedTex)
+  })
+  it('empty manualTex is manual mode, not discard', async () => {
+    const id = await mk(); await updateVersion(id, { manualTex: '' }, root, { compile })
+    expect(readVersionView(id, root).manual).toBe(true); expect(lastTex).toBe('')
+  })
+  it('manualTex over MAX_MANUAL_TEX is rejected', async () => {
+    const id = await mk()
+    await expect(updateVersion(id, { manualTex: 'x'.repeat(MAX_MANUAL_TEX + 1) }, root, { compile })).rejects.toThrow(BadInputError)
+    expect(readVersionView(id, root).manual).toBe(false)
+  })
+  it('manual compile failure keeps previous pdf and blocks finalize', async () => {
+    const id = await mk(); await updateVersion(id, { manualTex: 'good' }, root, { compile })
+    fail = true; await updateVersion(id, { manualTex: 'bad' }, root, { compile })
+    const v = readVersionView(id, root)
+    expect(pdfOf(id)).toBe('good')
+    expect(v.compileError).toContain('boom'); expect(v.pageFill).toBe(1.0); expect(v.canFinalize).toBe(false)
+    await expect(finalizeVersion(id, root)).rejects.toBeInstanceOf(FinalizeNotAllowedError)
+    fail = false; await updateVersion(id, { manualTex: 'fixed' }, root, { compile })
+    expect(readVersionView(id, root).canFinalize).toBe(true)
+  })
+  it('non-manual compile failure still deletes the pdf', async () => {
+    const id = await mk(); fail = true; await updateVersion(id, { accepted: [] }, root, { compile })
+    expect(existsSync(join(versionDir(id, root), 'cv.pdf'))).toBe(false)
+  })
+  it('interrupted manual compile leaves canFinalize false', async () => {
+    const id = await mk()
+    expect(readVersionView(id, root).canFinalize).toBe(true)
+    let started!: () => void
+    const startedP = new Promise<void>((r) => { started = r })
+    const hang = () => { started(); return new Promise<never>(() => {}) }
+    void updateVersion(id, { manualTex: 'x' }, root, { compile: hang })
+    await startedP
+    expect(readVersionView(id, root).canFinalize).toBe(false)
+  })
+  it('coverageFinal is computed from manualTex', async () => {
+    const id = await mk()
+    expect(readVersionView(id, root).coverageFinal.keywords.covered).toBe(1)
+    await updateVersion(id, { manualTex: '\\begin{document}nothing here\\end{document}' }, root, { compile })
+    const v = readVersionView(id, root)
+    expect(v.coverageFinal.keywords.covered).toBe(0); expect(v.coverageBase.keywords.covered).toBe(1)
+  })
+  it('manual edits on a final version are frozen', async () => {
+    const id = await mk(); await finalizeVersion(id, root)
+    await expect(updateVersion(id, { manualTex: 'x' }, root, { compile })).rejects.toThrow(VersionFrozenError)
+  })
+  it('createVersion with manualTex starts in manual mode', async () => {
+    const id = await createVersion({ jd, llmPlan, manualTex: 'mine' }, yamlText, root, { compile })
+    expect(readVersionView(id, root).tex).toBe('mine'); expect(pdfOf(id)).toBe('mine')
   })
 })

@@ -5,10 +5,11 @@ import { parseEvidence } from './evidence'
 import { buildBasePlan } from './base'
 import { applySuggestions, diffPlans, displayDiff, type Suggestion } from './suggestions'
 import { validatePlan } from './validate'
-import { renderPlainText, renderTex } from './render'
+import { renderPlainText, renderTex, texToPlainText } from './render'
 import { compileTex, MAX_PAGE_FILL } from './compile'
 import { computeCoverage, type Coverage } from './coverage'
 import { evidenceGaps } from './gaps'
+import { diffLines, type LineDiffHunk } from './textdiff'
 
 export interface ResumeVersion {
   id: string; createdAt: string; status: 'draft' | 'final'; finalizedAt?: string
@@ -16,9 +17,19 @@ export interface ResumeVersion {
   llmPlan: LlmPlan; accepted: string[]; pageFill: number | null; compileError?: string
   /** Overfull-box warnings (> 2pt) from the last compile; any warning blocks finalize. */
   layoutWarnings?: string[]
+  /** Hand-edited LaTeX. Present (even as "") = manual mode: it is what gets compiled and scored. */
+  manualTex?: string
+  manualEditedAt?: string
 }
 export interface VersionView extends ResumeVersion {
   layoutWarnings: string[]
+  /** renderTex(evidence, current plan). */
+  generatedTex: string
+  /** What the editor shows: manualTex ?? generatedTex. */
+  tex: string
+  manual: boolean
+  /** generatedTex → manualTex; [] outside manual mode. */
+  manualDiff: LineDiffHunk[]
   base: Plan; current: Plan; suggestions: Suggestion[]; validationErrors: string[]
   diff: ReturnType<typeof displayDiff>; coverageBase: Coverage; coverageFinal: Coverage
   gaps: ReturnType<typeof evidenceGaps>; canFinalize: boolean
@@ -30,6 +41,17 @@ export class VersionFrozenError extends Error {}
 export class PlanInvalidError extends Error {
   constructor(readonly errors: string[]) { super(`Invalid plan:\n- ${errors.join('\n- ')}`) }
 }
+/** The request needs suggestions/plan to drive the CV, but the version is in manual LaTeX mode. */
+export class ManualModeError extends Error {
+  constructor(message = '已手动编辑，先放弃手改才能修改建议') { super(message) }
+}
+export class BadInputError extends Error {}
+export const MAX_MANUAL_TEX = 200_000
+/** Placeholder written before a manual compile; a crash mid-compile leaves it, so canFinalize stays false. */
+const COMPILE_PENDING = 'Compile did not finish'
+
+const isManual = (v: ResumeVersion) => v.manualTex !== undefined
+
 export class FinalizeNotAllowedError extends Error {
   constructor(message: string, readonly validationErrors: string[] = [], readonly pageFill: number | null = null) { super(message) }
 }
@@ -103,16 +125,24 @@ async function rebuildLocked(id: string, root: string, deps?: VersionDeps): Prom
   const ev = readSnapshot(id, root)
   const { current } = compute(v, ev)
   const dir = versionDir(id, root)
+  // Build in a scratch dir and move the outputs over only on success, so a failed manual compile
+  // leaves the last good PDF in place.
+  const build = path.join(dir, '.build')
   try {
-    const r = await (deps?.compile ?? compileTex)(renderTex(ev, current), dir)
+    const r = await (deps?.compile ?? compileTex)(v.manualTex ?? renderTex(ev, current), build)
+    for (const f of ['cv.pdf', 'cv.tex']) {
+      if (fs.existsSync(path.join(build, f))) fs.renameSync(path.join(build, f), path.join(dir, f))
+    }
     v.pageFill = r.pageFill
     v.layoutWarnings = r.warnings
     delete v.compileError
   } catch (e) {
-    v.pageFill = null
-    v.layoutWarnings = []
     v.compileError = e instanceof Error ? e.message : String(e)
-    fs.rmSync(path.join(dir, 'cv.pdf'), { force: true })
+    if (!isManual(v)) {
+      v.pageFill = null
+      v.layoutWarnings = []
+      fs.rmSync(path.join(dir, 'cv.pdf'), { force: true })
+    }
   }
   writeVersion(v, root)
 }
@@ -139,6 +169,8 @@ export async function createVersion(
     jd: JdAnalysis; jobUrl?: string; jobText?: string; analysis?: string; gapsScore?: number; llmPlan: LlmPlan
     /** Suggestion ids to accept; ids not among the plan's suggestions are ignored. Default: all. */
     accepted?: string[]
+    /** Start in manual mode with this LaTeX (duplicate of a hand-edited version). */
+    manualTex?: string
   },
   evidenceYaml: string,
   root = VERSIONS_ROOT,
@@ -155,6 +187,7 @@ export async function createVersion(
   writeVersion({
     id, createdAt: new Date().toISOString(), status: 'draft', jobUrl, jd, jobText, analysis, gapsScore, llmPlan,
     accepted, pageFill: null, layoutWarnings: [],
+    ...(input.manualTex !== undefined && { manualTex: input.manualTex, manualEditedAt: new Date().toISOString() }),
   }, root)
   await rebuild(id, root, deps)
   return id
@@ -165,21 +198,25 @@ export function readVersionView(id: string, root = VERSIONS_ROOT): VersionView {
   const ev = readSnapshot(id, root)
   const { base, current, validationErrors } = compute(v, ev)
   const layoutWarnings = v.layoutWarnings ?? []
+  const generatedTex = renderTex(ev, current)
+  const manual = isManual(v)
   const canFinalize = validationErrors.length === 0 && !v.compileError && layoutWarnings.length === 0 &&
     v.pageFill !== null && v.pageFill <= MAX_PAGE_FILL
   return {
     ...v, layoutWarnings, base, current, validationErrors, canFinalize,
+    generatedTex, tex: v.manualTex ?? generatedTex, manual,
+    manualDiff: manual ? diffLines(generatedTex, v.manualTex!) : [],
     suggestions: diffPlans(ev, base, v.llmPlan),
     diff: displayDiff(ev, base, current),
     coverageBase: computeCoverage(v.jd, renderPlainText(ev, base), ev.aliases),
-    coverageFinal: computeCoverage(v.jd, renderPlainText(ev, current), ev.aliases),
+    coverageFinal: computeCoverage(v.jd, manual ? texToPlainText(v.manualTex!) : renderPlainText(ev, current), ev.aliases),
     gaps: evidenceGaps(v.jd, ev, current),
   }
 }
 
 export function updateVersion(
   id: string,
-  patch: { accepted?: string[]; analysis?: string; gapsScore?: number; llmPlan?: LlmPlan },
+  patch: { accepted?: string[]; analysis?: string; gapsScore?: number; llmPlan?: LlmPlan; manualTex?: string | null },
   root = VERSIONS_ROOT,
   deps?: VersionDeps,
 ): Promise<void> {
@@ -187,10 +224,28 @@ export function updateVersion(
   return withLock(id, async () => {
     const v = readVersion(id, root)
     if (v.status === 'final') throw new VersionFrozenError(`Version ${id} is final`)
+    if (isManual(v) && patch.manualTex === undefined && (patch.llmPlan || patch.accepted)) throw new ManualModeError()
+    if (typeof patch.manualTex === 'string' && patch.manualTex.length > MAX_MANUAL_TEX) {
+      throw new BadInputError(`manualTex exceeds ${MAX_MANUAL_TEX} characters`)
+    }
     if (patch.analysis !== undefined) v.analysis = patch.analysis
     if (patch.gapsScore !== undefined) v.gapsScore = patch.gapsScore
     let needsRebuild = false
-    if (patch.llmPlan) {
+    if (typeof patch.manualTex === 'string') {
+      v.manualTex = patch.manualTex
+      v.manualEditedAt = new Date().toISOString()
+      // Keep the last good measurement (and PDF) visible; the pending marker keeps canFinalize false
+      // until this compile actually succeeds.
+      v.compileError = COMPILE_PENDING
+      writeVersion(v, root)
+      await rebuildLocked(id, root, deps)
+      return
+    }
+    if (patch.manualTex === null) {
+      delete v.manualTex
+      delete v.manualEditedAt
+      needsRebuild = true
+    } else if (patch.llmPlan) {
       const ev = readSnapshot(id, root)
       assertValidLlmPlan(patch.llmPlan, ev)
       v.llmPlan = patch.llmPlan
