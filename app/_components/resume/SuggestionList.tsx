@@ -9,6 +9,8 @@ interface Props {
   /** bulletId → bullet text, to give bold suggestions context */
   bulletText: Record<string, string>
   onToggle: (id: string) => void
+  /** Shown above the list when suggestions are locked (manual LaTeX mode). */
+  lockedNote?: string
 }
 
 function Row({ s, checked, disabled, hint, onToggle }: {
@@ -40,7 +42,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-export default function SuggestionList({ suggestions, accepted, disabled, companies, bulletText, onToggle }: Props) {
+export default function SuggestionList({ suggestions, accepted, disabled, companies, bulletText, onToggle, lockedNote }: Props) {
   if (suggestions.length === 0) {
     return <p className="text-xs text-zinc-500">LLM 方案与基础版相同，没有可勾选的建议。</p>
   }
@@ -58,6 +60,7 @@ export default function SuggestionList({ suggestions, accepted, disabled, compan
 
   return (
     <div className="space-y-4">
+      {lockedNote && <p className="rounded-md bg-violet-50 px-2 py-1.5 text-xs text-violet-700">{lockedNote}</p>}
       {expIds.map((eid) => (
         <Group key={eid || '_'} title={companies[eid] ?? eid}>
           {bulletLevel.filter((s) => (s.experienceId ?? '') === eid).map((s) => row(s))}

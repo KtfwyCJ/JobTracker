@@ -8,12 +8,15 @@ import SuggestionList from '@/app/_components/resume/SuggestionList'
 import ResumeDiff from '@/app/_components/resume/ResumeDiff'
 import CoveragePanel from '@/app/_components/resume/CoveragePanel'
 import GapList from '@/app/_components/resume/GapList'
+import LatexEditor from '@/app/_components/resume/LatexEditor'
+import ManualDiff from '@/app/_components/resume/ManualDiff'
 import type { ProfileId } from '@/app/_lib/resume/types'
 import { useVersion } from './useVersion'
 
 // Mirrors PROFILE_IDS / MAX_PAGE_FILL in app/_lib/resume — not imported to keep server modules out of the client bundle.
 const PROFILES: ProfileId[] = ['ai-engineer', 'senior-fullstack', 'senior-frontend']
 const MAX_PAGE_FILL = 1.5
+const LOCKED_NOTE = '已手动编辑 LaTeX，建议已锁定。放弃手改后可重新勾选。'
 
 const card = 'rounded-xl border border-zinc-200 bg-white p-4 shadow-sm'
 const btnPrimary = 'rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
@@ -33,11 +36,16 @@ export default function Page({ params, searchParams }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { versionId } = use(params)
-  const regeneratedNotice = use(searchParams).regenerated === '1'
+  const sp = use(searchParams)
+  const regeneratedNotice = sp.regenerated === '1'
+  const manualDroppedNotice = sp.manualDropped === '1'
   const router = useRouter()
-  const { view, accepted, loadError, error, pending, busy, renderStamp, toggle, regenerate, finalize, duplicate } =
-    useVersion(versionId)
+  const {
+    view, accepted, loadError, error, pending, busy, renderStamp, toggle, regenerate, finalize, duplicate,
+    texDraft, setTexDraft, dirty, saving, startManual, saveNow, discardManual,
+  } = useVersion(versionId)
   const [showApplied, setShowApplied] = useState(false)
+  const [diffTab, setDiffTab] = useState<'plan' | 'manual'>('manual')
 
   const companies = useMemo(
     () => Object.fromEntries((view?.diff.sections ?? []).map((s) => [s.experienceId, s.company])),
@@ -65,6 +73,8 @@ export default function Page({ params, searchParams }: {
 
   const isFinal = view.status === 'final'
   const locked = isFinal || busy !== null
+  const manual = view.manual
+  const showDiffTab = manual ? diffTab : 'plan'
 
   const onProfileChange = (p: ProfileId) => {
     if (p === view.llmPlan.profile) return
@@ -74,7 +84,9 @@ export default function Page({ params, searchParams }: {
 
   const onDuplicate = async () => {
     const r = await duplicate()
-    if (r) router.push('/resume/' + r.id + (r.regenerated ? '?regenerated=1' : ''))
+    if (!r) return
+    const q = [r.regenerated && 'regenerated=1', r.manualDropped && 'manualDropped=1'].filter(Boolean).join('&')
+    router.push('/resume/' + r.id + (q ? '?' + q : ''))
   }
 
   const over = view.pageFill !== null && view.pageFill > MAX_PAGE_FILL
@@ -96,13 +108,16 @@ export default function Page({ params, searchParams }: {
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${isFinal ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-600'}`}>
                 {isFinal ? '已定稿' : '草稿'}
               </span>
+              {manual && (
+                <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700">含手动修改</span>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
               <label className="flex items-center gap-2 text-zinc-600">
                 Profile
                 <select
                   value={view.llmPlan.profile}
-                  disabled={locked || pending}
+                  disabled={locked || pending || manual}
                   onChange={(e) => onProfileChange(e.target.value as ProfileId)}
                   className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 outline-none focus:border-zinc-500 disabled:opacity-50"
                 >
@@ -120,6 +135,7 @@ export default function Page({ params, searchParams }: {
           {regeneratedNotice && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
               证据库已变化，原方案不再有效，已为此草稿重新生成方案（勾选已重置为全选）。
+              {manualDroppedNotice && ' 原版本的手改内容未保留。'}
             </div>
           )}
 
@@ -132,28 +148,48 @@ export default function Page({ params, searchParams }: {
             </div>
           )}
 
-          {/* Suggestions + gaps | PDF */}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <div className="space-y-4">
-              <div className={card}>
-                <SectionTitle aside={pending && <span className="text-[11px] text-zinc-500">渲染中…</span>}>建议</SectionTitle>
-                <SuggestionList
-                  suggestions={view.suggestions}
-                  accepted={accepted}
-                  disabled={locked}
-                  companies={companies}
-                  bulletText={bulletText}
-                  onToggle={toggle}
-                />
-              </div>
-              <div className={card}>
-                <SectionTitle>证据缺口</SectionTitle>
-                <GapList {...view.gaps} />
-              </div>
+          {/* Suggestions | gaps */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className={card}>
+              <SectionTitle aside={pending && <span className="text-[11px] text-zinc-500">渲染中…</span>}>建议</SectionTitle>
+              <SuggestionList
+                suggestions={view.suggestions}
+                accepted={accepted}
+                disabled={locked || manual}
+                companies={companies}
+                bulletText={bulletText}
+                onToggle={toggle}
+                lockedNote={manual ? LOCKED_NOTE : undefined}
+              />
+            </div>
+            <div className={card}>
+              <SectionTitle>证据缺口</SectionTitle>
+              <GapList {...view.gaps} />
+            </div>
+          </div>
+
+          {/* LaTeX | PDF */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className={card}>
+              <SectionTitle>LaTeX 源码</SectionTitle>
+              <LatexEditor
+                value={manual ? texDraft : view.tex}
+                manual={manual}
+                isFinal={isFinal}
+                dirty={dirty}
+                saving={saving}
+                compileError={view.compileError}
+                canStart={!isFinal && busy === null && !pending}
+                switching={busy === 'manual'}
+                onChange={setTexDraft}
+                onStart={() => void startManual()}
+                onSaveNow={() => void saveNow()}
+                onDiscard={() => void discardManual()}
+              />
             </div>
             <div className={card}>
               <SectionTitle>PDF 预览</SectionTitle>
-              {view.compileError ? (
+              {view.compileError && !manual ? (
                 <pre className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-lg bg-red-50 p-3 text-[11px] text-red-700">{view.compileError}</pre>
               ) : (
                 <iframe
@@ -168,8 +204,26 @@ export default function Page({ params, searchParams }: {
 
           {/* Diff */}
           <div className={card}>
-            <SectionTitle>改动对比（基础版 vs 当前）</SectionTitle>
-            <ResumeDiff sections={view.diff.sections} skills={view.diff.skills} />
+            <SectionTitle
+              aside={manual && (
+                <div className="flex gap-1 text-[11px]">
+                  {([['plan', '基础版 vs 方案'], ['manual', '生成版 vs 手改']] as const).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => setDiffTab(k)}
+                      className={`rounded-md px-2 py-0.5 font-medium ${showDiffTab === k ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            >
+              {showDiffTab === 'manual' ? '改动对比（生成版 vs 手改）' : '改动对比（基础版 vs 当前）'}
+            </SectionTitle>
+            {showDiffTab === 'manual'
+              ? <ManualDiff hunks={view.manualDiff} />
+              : <ResumeDiff sections={view.diff.sections} skills={view.diff.skills} />}
           </div>
 
           {/* Score, page fill, actions */}
