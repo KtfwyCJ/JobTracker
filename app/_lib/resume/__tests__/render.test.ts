@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseEvidence } from '../evidence'
 import { buildBasePlan } from '../base'
-import { escapeLatex, escapeHrefUrl, renderTex, renderPlainText, TABLE_COLSPEC } from '../render'
-import { findTermSpan } from '../coverage'
+import { escapeLatex, escapeHrefUrl, renderTex, renderPlainText, texToPlainText, TABLE_COLSPEC } from '../render'
+import { findTermSpan, termMatches } from '../coverage'
 import type { Plan } from '../types'
 
 const ev = parseEvidence(readFileSync(join(__dirname, '../__fixtures__/evidence.yaml'), 'utf8'))
@@ -129,5 +129,35 @@ describe('renderTex wrapping tables and markup', () => {
     expect(escapeHrefUrl('https://x.dev/{a}\\b')).toBe('https://x.dev/\\%7Ba\\%7D\\%5Cb')
     const e = { ...ev, contact: { ...ev.contact, website: 'x.dev/p#me' } }
     expect(renderTex(e, plan)).toContain('\\href{https://x.dev/p\\#me}{x.dev/p\\#me}')
+  })
+})
+
+describe('texToPlainText', () => {
+  const doc = (body: string) => `\\documentclass{article}\n\\usepackage{xcolor}\n\\begin{document}\n${body}\n\\end{document}`
+  it('keeps only the document body', () => {
+    const t = texToPlainText(doc('Hello'))
+    expect(t).toContain('Hello'); expect(t).not.toContain('documentclass'); expect(t).not.toContain('xcolor')
+  })
+  it('unescapes and keeps command arguments', () => {
+    expect(texToPlainText(doc('Used \\textbf{Node.js} \\& React, 50\\% faster'))).toContain('Used Node.js & React, 50% faster')
+  })
+  it('drops comments but not \\%', () => {
+    const t = texToPlainText(doc('keep 5\\% % drop me'))
+    expect(t).toContain('keep 5%'); expect(t).not.toContain('drop me')
+  })
+  it('href keeps only the display text', () => {
+    const t = texToPlainText(doc('\\href{https://ex.com/a}{ex.com}'))
+    expect(t).toContain('ex.com'); expect(t).not.toContain('https://')
+  })
+  it('drops length commands and environment names', () => {
+    const t = texToPlainText(doc('\\vspace{6pt}\\begin{itemize}\\item A\\end{itemize}\\hspace{3pt}'))
+    expect(t).not.toMatch(/6pt|3pt|itemize/); expect(t).toContain('A')
+  })
+  it('command inside a word does not split it', () => expect(texToPlainText(doc('full-\\textbf{stack} and a\\textbackslash{}b'))).toContain('full-stack and a\\b'))
+  it('no \\begin{document} → whole input', () => expect(texToPlainText('just \\textit{text}')).toContain('just text'))
+  it('every keyword covered by renderPlainText is covered by texToPlainText(renderTex)', () => {
+    const kws = ['Node.js', 'React', 'Vue.js', 'C++', 'Python', '50%']
+    const a = renderPlainText(ev, plan), b = texToPlainText(renderTex(ev, plan))
+    for (const k of kws) if (termMatches(a, k, ev.aliases)) expect(termMatches(b, k, ev.aliases), k).toBe(true)
   })
 })

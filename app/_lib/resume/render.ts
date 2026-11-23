@@ -137,3 +137,38 @@ export function renderPlainText(ev: Evidence, plan: Plan): string {
   for (const i of ev.interests) lines.push(`${i.name}: ${stripBold(i.text)}`)
   return lines.filter(l => l !== '').join('\n')
 }
+
+const TEX_SYMBOLS: Record<string, string> = {
+  textbackslash: '\\', textasciitilde: '~', textasciicircum: '^', textperiodcentered: '·',
+  textbar: '|', enspace: ' ', quad: ' ', qquad: ' ',
+}
+/** Commands whose arguments are layout values, not text: dropped together with their {…} arguments. */
+const DROP_WITH_ARGS = /\\(?:[vh]space\*?|fontsize|setlength|definecolor|color|kern|leaders|rule|hrule|vrule|begin|end|includegraphics)\s*(?:\[[^\]]*\]\s*)?(?:\{[^{}]*\}\s*)*/g
+
+/**
+ * Heuristic LaTeX → plain text for keyword coverage on manually edited CVs. Not a TeX parser:
+ * keeps the text inside command arguments, drops preamble, comments and layout commands.
+ */
+export function texToPlainText(tex: string): string {
+  const b = tex.indexOf('\\begin{document}')
+  const e = tex.lastIndexOf('\\end{document}')
+  let s = b >= 0 ? tex.slice(b + '\\begin{document}'.length, e > b ? e : undefined) : tex
+  s = s.replace(/\\\\(?:\[[^\]]*\])?/g, '\n')
+  // Escaped specials → private-use placeholders so comment/brace stripping leaves them alone.
+  const specials = '&%$#_{}'
+  s = s.replace(/\\([&%$#_{}])/g, (_, c: string) => String.fromCharCode(0xe000 + specials.indexOf(c)))
+  s = s.replace(/%.*$/gm, '')
+  s = s.replace(/\\href\s*\{[^{}]*\}/g, '')
+  s = s.replace(DROP_WITH_ARGS, ' ')
+  // Symbol commands also go through a placeholder, so e.g. a produced "\\" is not re-read as a command.
+  const syms: string[] = []
+  s = s.replace(/\\([A-Za-z]+)(?:\{\})?/g, (m, name: string) =>
+    name in TEX_SYMBOLS ? String.fromCharCode(0xe100 + syms.push(TEX_SYMBOLS[name]) - 1) : m)
+  s = s.replace(/\\[A-Za-z]+\*?(?=\{)/g, '') // \textbf{x} → {x}: no space, so mid-word commands don't split words
+  s = s.replace(/\\[A-Za-z]+\*?/g, ' ')
+  s = s.replace(/\[[^\]\n]*\]/g, (m) => (/[=]|pt|em|ex/.test(m) ? ' ' : m)) // optional args like [leftmargin=*]
+  s = s.replace(/[{}]/g, '').replace(/&/g, ' ').replace(/~/g, ' ')
+  s = s.replace(/[-]/g, (c) => specials[c.charCodeAt(0) - 0xe000])
+  s = s.replace(/[-]/g, (c) => syms[c.charCodeAt(0) - 0xe100] ?? '')
+  return s.split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n')
+}
